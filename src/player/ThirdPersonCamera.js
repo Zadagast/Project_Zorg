@@ -13,8 +13,8 @@ const _east = new THREE.Vector3();
 const _north = new THREE.Vector3();
 
 /**
- * Orbits behind a fixed pivot (player) at a TPS angle.
- * The player stays at screen center; lookAt always targets the pivot.
+ * Standard third-person orbit: camera circles behind the player pivot (chest height).
+ * Mouse yaw/pitch rotate around the character, not the screen-center crosshair.
  */
 export class ThirdPersonCamera {
   constructor(camera) {
@@ -22,11 +22,10 @@ export class ThirdPersonCamera {
     this.distance = 4.5;
     this.minDistance = 2.5;
     this.maxDistance = 40;
-    this.pitch = 0.42;
-    this.minPitch = 0.18;
-    this.maxPitch = 0.75;
+    this.pitch = 0.38;
+    this.minPitch = 0.12;
+    this.maxPitch = 0.72;
     this.yaw = 0;
-    this.pivotHeight = 1.0;
     this.exitDistance = 20;
     this.mouseSensitivity = 0.0045;
     this.wheelSensitivity = 0.015;
@@ -39,8 +38,7 @@ export class ThirdPersonCamera {
     this.minDistance = Math.max(2.5, radius * 0.35);
     this.exitDistance = radius * EXIT_ZOOM_FACTOR;
     this.maxDistance = this.exitDistance * 1.05;
-    this.pivotHeight = Math.max(0.9, radius * 0.13);
-    this.pitch = 0.42;
+    this.pitch = 0.38;
   }
 
   enterWalkMode() {
@@ -76,10 +74,6 @@ export class ThirdPersonCamera {
     return this.distance;
   }
 
-  _writePivot(focusBase, up, target) {
-    return target.copy(up).multiplyScalar(this.pivotHeight).add(focusBase);
-  }
-
   _writeForwardFromYaw(up, target) {
     const basis = tangentBasis(up);
     _east.copy(basis.east);
@@ -100,8 +94,8 @@ export class ThirdPersonCamera {
     return target.copy(pivot).add(_offset);
   }
 
-  setApproachOrientation(focusBase, up, cameraPosition, bodyCenter) {
-    this._writePivot(focusBase, up, _pivot);
+  setApproachOrientation(pivot, up, cameraPosition, bodyCenter) {
+    _pivot.copy(pivot);
     const basis = tangentBasis(up);
     _east.copy(basis.east);
     _north.copy(basis.north);
@@ -126,11 +120,11 @@ export class ThirdPersonCamera {
       this.yaw = 0;
     }
 
-    this.pitch = 0.42;
+    this.pitch = 0.38;
   }
 
-  applyCameraPose(focusBase, up) {
-    this._writePivot(focusBase, up, _pivot);
+  applyCameraPose(pivot, up) {
+    _pivot.copy(pivot);
     this._writeOrbitPosition(_pivot, up, _desired);
 
     if (!Number.isFinite(_desired.x) || !Number.isFinite(_pivot.x)) return;
@@ -139,11 +133,11 @@ export class ThirdPersonCamera {
     this.camera.lookAt(_pivot);
   }
 
-  update(focusBase, up) {
-    this.applyCameraPose(focusBase, up);
+  update(pivot, up) {
+    this.applyCameraPose(pivot, up);
   }
 
-  getMovementBasis(focusBase, up) {
+  getMovementBasis(_pivot, up) {
     this._writeForwardFromYaw(up, _forward);
     _right.crossVectors(_forward, up).normalize();
     return { forward: _forward, right: _right, up };

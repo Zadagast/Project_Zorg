@@ -1,6 +1,6 @@
 import { CELESTIAL_BODIES } from '../config.js';
 import { CelestialBody } from './CelestialBody.js';
-import { createSunLight } from '../rendering/SceneSetup.js';
+import { createSunLight, createSunDirectionalLight } from '../rendering/SceneSetup.js';
 
 function yieldFrame() {
   return new Promise((resolve) => requestAnimationFrame(resolve));
@@ -11,7 +11,9 @@ export class SolarSystem {
     this.scene = scene;
     this.bodies = [];
     this.sunLight = createSunLight();
+    this.sunDirectional = createSunDirectionalLight();
     scene.add(this.sunLight);
+    scene.add(this.sunDirectional);
   }
 
   static async create(scene, onProgress) {

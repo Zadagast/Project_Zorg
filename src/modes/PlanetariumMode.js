@@ -15,13 +15,13 @@ export class PlanetariumMode {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.06;
     this.controls.minDistance = 5;
-    this.controls.maxDistance = 2000;
+    this.controls.maxDistance = 4000;
     this.controls.mouseButtons = {
       LEFT: THREE.MOUSE.ROTATE,
       MIDDLE: THREE.MOUSE.DOLLY,
       RIGHT: THREE.MOUSE.PAN,
     };
-    this.controls.target.set(180, 0, 0);
+    this.controls.target.set(420, 0, 0);
 
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();

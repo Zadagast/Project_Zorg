@@ -3,6 +3,7 @@ import { WalkRig } from '../player/WalkRig.js';
 
 const WHEEL_GRACE_MS = 800;
 const _focusBase = new THREE.Vector3();
+const _cameraPivot = new THREE.Vector3();
 const _up = new THREE.Vector3();
 const _bodyCenter = new THREE.Vector3();
 
@@ -63,14 +64,15 @@ export class WalkMode {
     this.walkRig.attach(body, this.player, landingPoint);
 
     const focusBase = this.walkRig.getFocusBase(_focusBase);
+    const cameraPivot = this.walkRig.getCameraPivot(_cameraPivot);
     const up = this.walkRig.getWorldUp(_up);
     const bodyCenter = body.getWorldCenter(_bodyCenter);
 
     this.tpsCamera.setDistanceForBody(body.radius);
     const targetDist = this.tpsCamera.distance;
-    this.tpsCamera.setApproachOrientation(focusBase, up, this.camera.position, bodyCenter);
+    this.tpsCamera.setApproachOrientation(cameraPivot, up, this.camera.position, bodyCenter);
     const startDist = this.tpsCamera.distance;
-    this.tpsCamera.applyCameraPose(focusBase, up);
+    this.tpsCamera.applyCameraPose(cameraPivot, up);
 
     return { startDist, targetDist };
   }
@@ -96,8 +98,9 @@ export class WalkMode {
     this._setCrosshairVisible(true);
     this.input.consumeWheelDelta();
     const focusBase = this.walkRig.getFocusBase(_focusBase);
+    const cameraPivot = this.walkRig.getCameraPivot(_cameraPivot);
     const up = this.walkRig.getWorldUp(_up);
-    this.tpsCamera.applyCameraPose(focusBase, up);
+    this.tpsCamera.applyCameraPose(cameraPivot, up);
     this.walkRig.syncPlayerFacing(this.tpsCamera, focusBase, up);
   }
 
@@ -121,6 +124,7 @@ export class WalkMode {
 
     try {
       const focusBase = this.walkRig.getFocusBase(_focusBase);
+      const cameraPivot = this.walkRig.getCameraPivot(_cameraPivot);
       const up = this.walkRig.getWorldUp(_up);
 
       if (!this.input.isMouseDown(0) && !this.input.isMouseDown(2)) {
@@ -159,7 +163,8 @@ export class WalkMode {
         this.walkRig.syncPlayerFacing(this.tpsCamera, focusBase, up);
       }
 
-      this.tpsCamera.update(focusBase, up);
+      this.tpsCamera.update(cameraPivot, up);
+      this.walkRig.updateFillLight();
     } catch (err) {
       console.error('Walk mode update failed:', err);
     }
@@ -167,9 +172,9 @@ export class WalkMode {
 
   updateLandingTransition() {
     if (!this.activeBody) return;
-    const focusBase = this.walkRig.getFocusBase(_focusBase);
+    const cameraPivot = this.walkRig.getCameraPivot(_cameraPivot);
     const up = this.walkRig.getWorldUp(_up);
-    this.tpsCamera.applyCameraPose(focusBase, up);
+    this.tpsCamera.applyCameraPose(cameraPivot, up);
   }
 
   setLandingDistance(distance) {

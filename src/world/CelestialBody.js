@@ -39,6 +39,11 @@ export class CelestialBody {
     });
 
     const geometry = new THREE.BoxGeometry(VOXEL_SIZE, VOXEL_SIZE, VOXEL_SIZE);
+    // InstancedMesh multiplies geometry color × instance color; default geometry has no
+    // color attribute which zeroes vColor and renders black voxels.
+    const baseColors = new Float32Array(geometry.attributes.position.count * 3);
+    baseColors.fill(1);
+    geometry.setAttribute('color', new THREE.BufferAttribute(baseColors, 3));
 
     const material = this.isSun
       ? new THREE.MeshStandardMaterial({
@@ -48,12 +53,9 @@ export class CelestialBody {
           emissiveIntensity: 1.2,
           vertexColors: true,
         })
-      : new THREE.MeshStandardMaterial({
-          roughness: 0.85,
-          metalness: 0.05,
+      : new THREE.MeshBasicMaterial({
+          color: 0xffffff,
           vertexColors: true,
-          emissive: new THREE.Color(0x000000),
-          emissiveIntensity: 0,
         });
 
     this.mesh = new THREE.InstancedMesh(geometry, material, voxels.length);
@@ -62,18 +64,19 @@ export class CelestialBody {
     this.mesh.receiveShadow = false;
     this.mesh.frustumCulled = true;
 
+    const instanceColors = new Float32Array(voxels.length * 3);
     for (let i = 0; i < voxels.length; i += 1) {
       _dummy.position.copy(voxels[i].position);
       _dummy.updateMatrix();
       this.mesh.setMatrixAt(i, _dummy.matrix);
       _scratchColor.setHex(voxels[i].color);
-      this.mesh.setColorAt(i, _scratchColor);
+      _scratchColor.toArray(instanceColors, i * 3);
     }
+    this.mesh.instanceColor = new THREE.InstancedBufferAttribute(instanceColors, 3);
     this.mesh.instanceMatrix.needsUpdate = true;
-    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    this.mesh.instanceColor.needsUpdate = true;
 
     this.group.add(this.mesh);
-    this._highlightEmissive = this.isSun ? 1.6 : 0.15;
   }
 
   getWorldCenter(target = new THREE.Vector3()) {
@@ -85,9 +88,8 @@ export class CelestialBody {
   }
 
   setHighlighted(on) {
-    if (!this.isSun && this.mesh.material.emissive) {
-      this.mesh.material.emissive.set(on ? 0x334466 : 0x000000);
-      this.mesh.material.emissiveIntensity = on ? this._highlightEmissive : 0;
+    if (!this.isSun) {
+      this.mesh.material.color.set(on ? 0xddeeff : 0xffffff);
     }
   }
 

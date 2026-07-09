@@ -22,6 +22,9 @@ export class WalkRig {
     this.playerHeight = 0;
     this.moveSpeed = 12;
     this.spinQuaternion = new THREE.Quaternion();
+    this.fillLight = new THREE.PointLight(0xc8d8ff, 0.9, 0, 1.5);
+    this.fillLight.visible = false;
+    scene.add(this.fillLight);
   }
 
   attach(body, player, landingPoint) {
@@ -54,6 +57,9 @@ export class WalkRig {
     player.root.position.set(0, this.playerHeight, 0);
     player.setRigOrientation(0);
 
+    this.fillLight.position.copy(center).addScaledVector(landingDir, this.playerHeight + 2);
+    this.fillLight.visible = true;
+
     this.attached = true;
   }
 
@@ -76,6 +82,7 @@ export class WalkRig {
 
     this.body = null;
     this.player = null;
+    this.fillLight.visible = false;
     this.attached = false;
     this.spinQuaternion.identity();
   }
@@ -86,6 +93,19 @@ export class WalkRig {
 
   getFocusBase(target) {
     return this.rig.localToWorld(target.set(0, this.playerHeight, 0));
+  }
+
+  /** World-space chest height — TPS orbit pivot stays on the character, not the crosshair. */
+  getCameraPivot(target) {
+    const feet = this.getFocusBase(_focusScratch);
+    const scale = this.player?.root.scale.x ?? 1;
+    const chestOffset = 1.05 * scale;
+    return target.copy(feet).addScaledVector(this.getWorldUp(_axisScratch), chestOffset);
+  }
+
+  updateFillLight() {
+    if (!this.attached) return;
+    this.fillLight.position.copy(this.getCameraPivot(_focusScratch));
   }
 
   applyMovement(input, basis, dt) {
@@ -121,6 +141,7 @@ export class WalkRig {
     this.body.group.quaternion.copy(this.spinQuaternion);
 
     this.player.setRigOrientation(Math.atan2(_moveScratch.x, _moveScratch.z));
+    this.updateFillLight();
     return true;
   }
 

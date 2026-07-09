@@ -1,15 +1,15 @@
 export const VOXEL_SIZE = 1;
 
 export const CELESTIAL_BODIES = [
-  { name: 'Sun', radius: 30, color: 0xffcc00, distance: 0, isSun: true },
-  { name: 'Mercury', radius: 4, color: 0xaaaaaa, distance: 60 },
-  { name: 'Venus', radius: 7, color: 0xffcc99, distance: 90 },
-  { name: 'Earth', radius: 7, color: 0x228b22, distance: 120 },
-  { name: 'Mars', radius: 5, color: 0xff4500, distance: 150 },
-  { name: 'Jupiter', radius: 18, color: 0xdb7093, distance: 210 },
-  { name: 'Saturn', radius: 15, color: 0xf4a460, distance: 270, hasRings: true },
-  { name: 'Uranus', radius: 12, color: 0xadd8e6, distance: 330 },
-  { name: 'Neptune', radius: 12, color: 0x4682b4, distance: 380 },
+  { name: 'Sun', radius: 45, color: 0xffcc00, distance: 0, isSun: true },
+  { name: 'Mercury', radius: 14, color: 0xaaaaaa, distance: 210 },
+  { name: 'Venus', radius: 26, color: 0xffcc99, distance: 315 },
+  { name: 'Earth', radius: 28, color: 0x228b22, distance: 420 },
+  { name: 'Mars', radius: 20, color: 0xff4500, distance: 525 },
+  { name: 'Jupiter', radius: 42, color: 0xdb7093, distance: 735 },
+  { name: 'Saturn', radius: 38, color: 0xf4a460, distance: 945, hasRings: true },
+  { name: 'Uranus', radius: 30, color: 0xadd8e6, distance: 1155 },
+  { name: 'Neptune', radius: 30, color: 0x4682b4, distance: 1330 },
 ];
 
 export const MODES = {
