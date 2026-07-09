@@ -1,9 +1,8 @@
 import * as THREE from 'three';
-import { tangentBasis, projectOntoTangentPlane } from '../utils/SphericalMath.js';
+import { tangentBasis } from '../utils/SphericalMath.js';
 import { EXIT_ZOOM_FACTOR } from '../config.js';
 
-const _focus = new THREE.Vector3();
-const _aim = new THREE.Vector3();
+const _pivot = new THREE.Vector3();
 const _desired = new THREE.Vector3();
 const _offset = new THREE.Vector3();
 const _forward = new THREE.Vector3();
@@ -13,35 +12,35 @@ const _toCamera = new THREE.Vector3();
 const _east = new THREE.Vector3();
 const _north = new THREE.Vector3();
 
+/**
+ * Orbits behind a fixed pivot (player) at a TPS angle.
+ * The player stays at screen center; lookAt always targets the pivot.
+ */
 export class ThirdPersonCamera {
   constructor(camera) {
     this.camera = camera;
     this.distance = 4.5;
     this.minDistance = 2.5;
     this.maxDistance = 40;
-    this.pitch = 0.48;
-    this.minPitch = 0.22;
-    this.maxPitch = 0.82;
+    this.pitch = 0.42;
+    this.minPitch = 0.18;
+    this.maxPitch = 0.75;
     this.yaw = 0;
-    this.lookHeight = 1.0;
-    this.shoulderOffset = 0.85;
-    this.aimLead = 24;
+    this.pivotHeight = 1.0;
     this.exitDistance = 20;
     this.mouseSensitivity = 0.0045;
     this.wheelSensitivity = 0.015;
-    this.walkFov = 52;
+    this.walkFov = 50;
     this._savedFov = null;
   }
 
   setDistanceForBody(radius) {
-    this.distance = Math.max(3.2, radius * 0.52);
-    this.minDistance = Math.max(2.2, radius * 0.32);
+    this.distance = Math.max(3.5, radius * 0.55);
+    this.minDistance = Math.max(2.5, radius * 0.35);
     this.exitDistance = radius * EXIT_ZOOM_FACTOR;
     this.maxDistance = this.exitDistance * 1.05;
-    this.lookHeight = Math.max(0.85, radius * 0.12);
-    this.shoulderOffset = Math.max(0.7, radius * 0.11);
-    this.aimLead = Math.max(16, radius * 2.2);
-    this.pitch = 0.48;
+    this.pivotHeight = Math.max(0.9, radius * 0.13);
+    this.pitch = 0.42;
   }
 
   enterWalkMode() {
@@ -78,7 +77,7 @@ export class ThirdPersonCamera {
   }
 
   _writePivot(focusBase, up, target) {
-    return target.copy(up).multiplyScalar(this.lookHeight).add(focusBase);
+    return target.copy(up).multiplyScalar(this.pivotHeight).add(focusBase);
   }
 
   _writeForwardFromYaw(up, target) {
@@ -97,25 +96,17 @@ export class ThirdPersonCamera {
 
     _offset.copy(_forward).multiplyScalar(-this.distance * cosPitch);
     _offset.addScaledVector(up, this.distance * sinPitch);
-    _offset.addScaledVector(_right, this.shoulderOffset);
 
     return target.copy(pivot).add(_offset);
   }
 
-  _writeAimPoint(pivot, up, target) {
-    this._writeForwardFromYaw(up, _forward);
-    return target.copy(pivot)
-      .addScaledVector(_forward, this.aimLead)
-      .addScaledVector(up, this.lookHeight * 0.15);
-  }
-
   setApproachOrientation(focusBase, up, cameraPosition, bodyCenter) {
-    this._writePivot(focusBase, up, _focus);
+    this._writePivot(focusBase, up, _pivot);
     const basis = tangentBasis(up);
     _east.copy(basis.east);
     _north.copy(basis.north);
 
-    _toCamera.copy(cameraPosition).sub(_focus);
+    _toCamera.copy(cameraPosition).sub(_pivot);
     const startDist = _toCamera.length();
     if (startDist > 1e-4) {
       this.distance = THREE.MathUtils.clamp(startDist, this.minDistance, this.maxDistance);
@@ -135,25 +126,23 @@ export class ThirdPersonCamera {
       this.yaw = 0;
     }
 
-    this.pitch = 0.48;
+    this.pitch = 0.42;
   }
 
   applyCameraPose(focusBase, up) {
-    this._writePivot(focusBase, up, _focus);
-    this._writeOrbitPosition(_focus, up, _desired);
-    this._writeAimPoint(_focus, up, _aim);
+    this._writePivot(focusBase, up, _pivot);
+    this._writeOrbitPosition(_pivot, up, _desired);
 
-    if (!Number.isFinite(_desired.x) || !Number.isFinite(_aim.x)) return;
+    if (!Number.isFinite(_desired.x) || !Number.isFinite(_pivot.x)) return;
 
     this.camera.position.copy(_desired);
-    this.camera.lookAt(_aim);
+    this.camera.lookAt(_pivot);
   }
 
   update(focusBase, up) {
     this.applyCameraPose(focusBase, up);
   }
 
-  /** TPS strafe: move on the ground plane using camera yaw, not look pitch. */
   getMovementBasis(focusBase, up) {
     this._writeForwardFromYaw(up, _forward);
     _right.crossVectors(_forward, up).normalize();

@@ -29,7 +29,7 @@ export class WalkRig {
 
     this.body = body;
     this.player = player;
-    this.moveSpeed = Math.max(6, body.radius * 0.35);
+    this.moveSpeed = Math.max(8, body.radius * 0.42);
     this.playerHeight = body.radius + this.surfaceOffset;
     this.spinQuaternion.identity();
 
@@ -115,7 +115,7 @@ export class WalkRig {
     if (_axisScratch.lengthSq() < 1e-8) return;
     _axisScratch.normalize();
 
-    _deltaScratch.setFromAxisAngle(_axisScratch, angle);
+    _deltaScratch.setFromAxisAngle(_axisScratch, -angle);
     this.spinQuaternion.premultiply(_deltaScratch);
     this.spinQuaternion.normalize();
     this.body.group.quaternion.copy(this.spinQuaternion);
