@@ -115,7 +115,7 @@ export class WalkRig {
     if (_axisScratch.lengthSq() < 1e-8) return;
     _axisScratch.normalize();
 
-    _deltaScratch.setFromAxisAngle(_axisScratch, -angle);
+    _deltaScratch.setFromAxisAngle(_axisScratch, angle);
     this.spinQuaternion.premultiply(_deltaScratch);
     this.spinQuaternion.normalize();
     this.body.group.quaternion.copy(this.spinQuaternion);
