@@ -41,6 +41,7 @@ export class InputManager {
     domElement.addEventListener('mousedown', this._onMouseDown);
     window.addEventListener('mouseup', this._onMouseUp);
     document.addEventListener('pointerlockchange', this._onPointerLockChange);
+    document.addEventListener('pointerlockerror', this._onPointerLockChange);
   }
 
   isDown(code) {
@@ -73,11 +74,35 @@ export class InputManager {
   }
 
   requestPointerLock() {
-    this.domElement.requestPointerLock();
+    if (document.pointerLockElement === this.domElement) {
+      return Promise.resolve(true);
+    }
+
+    this.domElement.focus({ preventScroll: true });
+
+    if (!document.hasFocus()) {
+      return Promise.resolve(false);
+    }
+
+    try {
+      const result = this.domElement.requestPointerLock({ unadjustedMovement: true });
+      if (result && typeof result.then === 'function') {
+        return result.then(() => true).catch(() => false);
+      }
+      return Promise.resolve(true);
+    } catch {
+      return Promise.resolve(false);
+    }
   }
 
   exitPointerLock() {
-    if (document.pointerLockElement) document.exitPointerLock();
+    if (document.pointerLockElement) {
+      try {
+        document.exitPointerLock();
+      } catch {
+        // Ignore if lock already released.
+      }
+    }
   }
 
   dispose() {
@@ -88,5 +113,6 @@ export class InputManager {
     this.domElement.removeEventListener('mousedown', this._onMouseDown);
     window.removeEventListener('mouseup', this._onMouseUp);
     document.removeEventListener('pointerlockchange', this._onPointerLockChange);
+    document.removeEventListener('pointerlockerror', this._onPointerLockChange);
   }
 }

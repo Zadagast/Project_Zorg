@@ -16,6 +16,8 @@ export function createSceneSetup() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.domElement.tabIndex = 0;
+  renderer.domElement.style.outline = 'none';
   document.body.appendChild(renderer.domElement);
 
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);

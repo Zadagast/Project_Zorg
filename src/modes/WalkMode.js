@@ -42,7 +42,7 @@ export class WalkMode {
     if (e.button === 0 || e.button === 2) {
       this._lookActive = true;
       if (!this.input.pointerLocked) {
-        this.input.requestPointerLock();
+        void this.input.requestPointerLock();
       }
     }
   };

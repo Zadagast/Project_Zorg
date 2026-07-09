@@ -10,7 +10,12 @@ window.addEventListener('error', (event) => {
 });
 
 window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled rejection:', event.reason);
+  const reason = event.reason;
+  if (reason instanceof DOMException && reason.name === 'NotAllowedError') {
+    event.preventDefault();
+    return;
+  }
+  console.error('Unhandled rejection:', reason);
 });
 
 new Game();
