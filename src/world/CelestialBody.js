@@ -1,0 +1,129 @@
+import * as THREE from 'three';
+import { generateVoxels } from './VoxelPlanetGenerator.js';
+import { VOXEL_SIZE } from '../config.js';
+
+const _dummy = new THREE.Object3D();
+const _scratchColor = new THREE.Color();
+
+export class CelestialBody {
+  constructor(def) {
+    this.name = def.name;
+    this.radius = def.radius;
+    this.distance = def.distance;
+    this.isSun = !!def.isSun;
+    this.hasRings = !!def.hasRings;
+    this.color = def.color;
+
+    this.group = new THREE.Group();
+    this.group.position.set(def.distance, 0, 0);
+    this.group.userData.celestialBody = this;
+
+    const pickRadius = this.radius * (this.hasRings ? 2.2 : 1);
+    this.pickSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(pickRadius, 16, 12),
+      new THREE.MeshBasicMaterial({ visible: false }),
+    );
+    this.pickSphere.userData.celestialBody = this;
+    this.group.add(this.pickSphere);
+
+    this._buildMesh();
+  }
+
+  _buildMesh() {
+    const voxels = generateVoxels({
+      name: this.name,
+      radius: this.radius,
+      color: this.color,
+      isSun: this.isSun,
+      hasRings: this.hasRings,
+    });
+
+    const geometry = new THREE.BoxGeometry(VOXEL_SIZE, VOXEL_SIZE, VOXEL_SIZE);
+
+    const material = this.isSun
+      ? new THREE.MeshStandardMaterial({
+          roughness: 0.6,
+          metalness: 0,
+          emissive: new THREE.Color(0xff8800),
+          emissiveIntensity: 1.2,
+          vertexColors: true,
+        })
+      : new THREE.MeshStandardMaterial({
+          roughness: 0.85,
+          metalness: 0.05,
+          vertexColors: true,
+          emissive: new THREE.Color(0x000000),
+          emissiveIntensity: 0,
+        });
+
+    this.mesh = new THREE.InstancedMesh(geometry, material, voxels.length);
+    this.mesh.userData.celestialBody = this;
+    this.mesh.castShadow = false;
+    this.mesh.receiveShadow = false;
+    this.mesh.frustumCulled = true;
+
+    for (let i = 0; i < voxels.length; i += 1) {
+      _dummy.position.copy(voxels[i].position);
+      _dummy.updateMatrix();
+      this.mesh.setMatrixAt(i, _dummy.matrix);
+      _scratchColor.setHex(voxels[i].color);
+      this.mesh.setColorAt(i, _scratchColor);
+    }
+    this.mesh.instanceMatrix.needsUpdate = true;
+    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+
+    this.group.add(this.mesh);
+    this._highlightEmissive = this.isSun ? 1.6 : 0.15;
+  }
+
+  getWorldCenter(target = new THREE.Vector3()) {
+    return this.group.getWorldPosition(target);
+  }
+
+  getPickTargets() {
+    return [this.pickSphere];
+  }
+
+  setHighlighted(on) {
+    if (!this.isSun && this.mesh.material.emissive) {
+      this.mesh.material.emissive.set(on ? 0x334466 : 0x000000);
+      this.mesh.material.emissiveIntensity = on ? this._highlightEmissive : 0;
+    }
+  }
+
+  setVisible(visible) {
+    this.group.visible = visible;
+  }
+
+  raycastSurface(worldOrigin, worldDirection, surfaceOffset = 0.5) {
+    const center = this.getWorldCenter(_centerScratch);
+    const radius = this.radius + surfaceOffset;
+    const direction = _dirScratch.copy(worldDirection).normalize();
+    const oc = _ocScratch.copy(worldOrigin).sub(center);
+    const a = direction.dot(direction);
+    const b = 2 * oc.dot(direction);
+    const c = oc.dot(oc) - radius * radius;
+    const discriminant = b * b - 4 * a * c;
+    if (discriminant < 0) return null;
+
+    const sqrtD = Math.sqrt(discriminant);
+    let t = (-b - sqrtD) / (2 * a);
+    if (t < 0) t = (-b + sqrtD) / (2 * a);
+    if (t < 0) return null;
+
+    const point = worldOrigin.clone().add(_dirScratch.copy(worldDirection).normalize().multiplyScalar(t));
+    const normal = point.clone().sub(center).normalize();
+    return { point, normal, distance: t };
+  }
+
+  dispose() {
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+    this.pickSphere.geometry.dispose();
+    this.pickSphere.material.dispose();
+  }
+}
+
+const _centerScratch = new THREE.Vector3();
+const _dirScratch = new THREE.Vector3();
+const _ocScratch = new THREE.Vector3();

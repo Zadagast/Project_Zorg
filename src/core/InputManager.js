@@ -1,0 +1,94 @@
+import * as THREE from 'three';
+
+export class InputManager {
+  constructor(domElement) {
+    this.domElement = domElement;
+    this.keys = new Set();
+    this.mouseDelta = { x: 0, y: 0 };
+    this.wheelDelta = 0;
+    this.pointerLocked = false;
+    this._mouseDown = false;
+    this._mouseButton = -1;
+    this._dragDistance = 0;
+
+    this._onKeyDown = (e) => this.keys.add(e.code);
+    this._onKeyUp = (e) => this.keys.delete(e.code);
+    this._onMouseMove = (e) => {
+      if (this.pointerLocked || this._mouseDown) {
+        this.mouseDelta.x += e.movementX;
+        this.mouseDelta.y += e.movementY;
+        this._dragDistance += Math.abs(e.movementX) + Math.abs(e.movementY);
+      }
+    };
+    this._onWheel = (e) => {
+      this.wheelDelta += e.deltaY;
+    };
+    this._onMouseDown = (e) => {
+      this._mouseDown = true;
+      this._mouseButton = e.button;
+      this._dragDistance = 0;
+    };
+    this._onMouseUp = () => {
+      this._mouseDown = false;
+      this._mouseButton = -1;
+    };
+    this._onPointerLockChange = () => {
+      this.pointerLocked = document.pointerLockElement === this.domElement;
+    };
+
+    window.addEventListener('keydown', this._onKeyDown);
+    window.addEventListener('keyup', this._onKeyUp);
+    window.addEventListener('mousemove', this._onMouseMove);
+    window.addEventListener('wheel', this._onWheel, { passive: true });
+    domElement.addEventListener('mousedown', this._onMouseDown);
+    window.addEventListener('mouseup', this._onMouseUp);
+    document.addEventListener('pointerlockchange', this._onPointerLockChange);
+  }
+
+  isDown(code) {
+    return this.keys.has(code);
+  }
+
+  isMouseDown(button = 0) {
+    return this._mouseDown && this._mouseButton === button;
+  }
+
+  wasDrag() {
+    return this._dragDistance > 4;
+  }
+
+  resetDrag() {
+    this._dragDistance = 0;
+  }
+
+  consumeMouseDelta() {
+    const delta = { ...this.mouseDelta };
+    this.mouseDelta.x = 0;
+    this.mouseDelta.y = 0;
+    return delta;
+  }
+
+  consumeWheelDelta() {
+    const delta = this.wheelDelta;
+    this.wheelDelta = 0;
+    return delta;
+  }
+
+  requestPointerLock() {
+    this.domElement.requestPointerLock();
+  }
+
+  exitPointerLock() {
+    if (document.pointerLockElement) document.exitPointerLock();
+  }
+
+  dispose() {
+    window.removeEventListener('keydown', this._onKeyDown);
+    window.removeEventListener('keyup', this._onKeyUp);
+    window.removeEventListener('mousemove', this._onMouseMove);
+    window.removeEventListener('wheel', this._onWheel);
+    this.domElement.removeEventListener('mousedown', this._onMouseDown);
+    window.removeEventListener('mouseup', this._onMouseUp);
+    document.removeEventListener('pointerlockchange', this._onPointerLockChange);
+  }
+}
