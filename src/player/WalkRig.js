@@ -49,6 +49,8 @@ export class WalkRig {
     body.group.scale.set(1, 1, 1);
 
     this.rig.add(player.root);
+    const playerScale = THREE.MathUtils.clamp(5.5 / body.radius, 1, 1.6);
+    player.root.scale.setScalar(playerScale);
     player.root.position.set(0, this.playerHeight, 0);
     player.setRigOrientation(0);
 
@@ -59,6 +61,7 @@ export class WalkRig {
     if (!this.attached || !this.body) return;
 
     this.rig.remove(this.player.root);
+    this.player.root.scale.setScalar(1);
     this.rig.remove(this.body.group);
     this.scene.remove(this.rig);
 

@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 import { WalkRig } from '../player/WalkRig.js';
 
 const WHEEL_GRACE_MS = 800;
@@ -15,6 +14,7 @@ export class WalkMode {
     tpsCamera,
     input,
     onExitRequest,
+    crosshair,
   }) {
     this.scene = scene;
     this.camera = camera;
@@ -23,6 +23,7 @@ export class WalkMode {
     this.tpsCamera = tpsCamera;
     this.input = input;
     this.onExitRequest = onExitRequest;
+    this.crosshair = crosshair;
     this.walkRig = new WalkRig(scene);
     this.activeBody = null;
     this.enabled = false;
@@ -46,9 +47,14 @@ export class WalkMode {
     }
   };
 
+  _setCrosshairVisible(visible) {
+    if (this.crosshair) this.crosshair.hidden = !visible;
+  }
+
   prepareLanding(body, landingPoint) {
     this.activeBody = body;
     this.enabled = false;
+    this.tpsCamera.enterWalkMode();
 
     this.solarSystem.setBodiesVisibleExcept(body, false);
     body.setHighlighted(false);
@@ -72,6 +78,8 @@ export class WalkMode {
     this.enabled = false;
     this.activeBody = null;
     this._lookActive = false;
+    this._setCrosshairVisible(false);
+    this.tpsCamera.exitWalkMode();
     if (this.player.root.parent) {
       this.player.root.parent.remove(this.player.root);
     }
@@ -84,6 +92,7 @@ export class WalkMode {
     this.enabled = true;
     this._enterTime = performance.now();
     this._lookActive = false;
+    this._setCrosshairVisible(true);
     this.input.consumeWheelDelta();
     const focusBase = this.walkRig.getFocusBase(_focusBase);
     const up = this.walkRig.getWorldUp(_up);
@@ -94,6 +103,8 @@ export class WalkMode {
   exit() {
     this.enabled = false;
     this._lookActive = false;
+    this._setCrosshairVisible(false);
+    this.tpsCamera.exitWalkMode();
     if (this.player.root.parent) {
       this.player.root.parent.remove(this.player.root);
     }

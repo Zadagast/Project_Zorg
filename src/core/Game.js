@@ -16,6 +16,7 @@ export class Game {
       hint: document.getElementById('hint'),
       bodyLabel: document.getElementById('body-label'),
       loading: document.getElementById('loading'),
+      crosshair: document.getElementById('crosshair'),
     };
 
     const { scene, camera, renderer } = createSceneSetup();
@@ -45,6 +46,7 @@ export class Game {
       player,
       tpsCamera,
       input: this.input,
+      crosshair: this.ui.crosshair,
       onExitRequest: (body) => this._modeManager?.handleExitRequest(body),
     });
 
