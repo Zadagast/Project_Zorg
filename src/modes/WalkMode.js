@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { WalkRig } from '../player/WalkRig.js';
 
 const WHEEL_GRACE_MS = 800;

@@ -32,7 +32,7 @@ The repo is set up to deploy automatically on every push to `main`.
 2. Push this project to `main`:
 
 ```bash
-git remote add origin https://github.com/YOUR_USERNAME/Project_Zorg.git
+git remote add origin https://github.com/Zadagast/Project_Zorg.git
 git push -u origin main
 ```
 
@@ -42,7 +42,7 @@ git push -u origin main
 ### Live URL
 
 ```
-https://YOUR_USERNAME.github.io/Project_Zorg/
+https://zadagast.github.io/Project_Zorg/
 ```
 
 Replace `YOUR_USERNAME` with your GitHub username.

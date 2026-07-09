@@ -1,5 +1,3 @@
-import * as THREE from 'three';
-
 export class InputManager {
   constructor(domElement) {
     this.domElement = domElement;
