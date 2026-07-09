@@ -86,7 +86,7 @@ export class WalkRig {
   }
 
   applyMovement(input, basis, dt) {
-    if (!this.attached || !this.body) return;
+    if (!this.attached || !this.body) return false;
 
     const { forward, right } = basis;
     _invRigQuat.copy(this.rig.quaternion).invert();
@@ -104,7 +104,7 @@ export class WalkRig {
     if (input.isDown('KeyD')) _moveScratch.add(_localRight);
     if (input.isDown('KeyA')) _moveScratch.sub(_localRight);
 
-    if (_moveScratch.lengthSq() === 0) return;
+    if (_moveScratch.lengthSq() === 0) return false;
 
     _moveScratch.normalize();
     const angle = (this.moveSpeed * dt) / this.body.radius;
@@ -118,6 +118,18 @@ export class WalkRig {
     this.body.group.quaternion.copy(this.spinQuaternion);
 
     this.player.setRigOrientation(Math.atan2(_moveScratch.x, _moveScratch.z));
+    return true;
+  }
+
+  syncPlayerFacing(tpsCamera, focusBase, up) {
+    if (!this.player) return;
+    const { forward } = tpsCamera.getMovementBasis(focusBase, up);
+    _invRigQuat.copy(this.rig.quaternion).invert();
+    _localForward.copy(forward).applyQuaternion(_invRigQuat);
+    _localForward.y = 0;
+    if (_localForward.lengthSq() < 1e-8) return;
+    _localForward.normalize();
+    this.player.setRigOrientation(Math.atan2(_localForward.x, _localForward.z));
   }
 
   getExitCameraPose() {
