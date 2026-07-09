@@ -11,7 +11,11 @@ window.addEventListener('error', (event) => {
 
 window.addEventListener('unhandledrejection', (event) => {
   const reason = event.reason;
-  if (reason instanceof DOMException && reason.name === 'NotAllowedError') {
+  const message = reason?.message ?? String(reason ?? '');
+  if (
+    reason instanceof DOMException
+    && (reason.name === 'NotAllowedError' || message.includes('not focused'))
+  ) {
     event.preventDefault();
     return;
   }

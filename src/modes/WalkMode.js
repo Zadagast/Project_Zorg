@@ -40,10 +40,9 @@ export class WalkMode {
   _onCanvasMouseDown = (e) => {
     if (!this.enabled) return;
     if (e.button === 0 || e.button === 2) {
+      e.preventDefault();
       this._lookActive = true;
-      if (!this.input.pointerLocked) {
-        void this.input.requestPointerLock();
-      }
+      this.input.domElement.focus({ preventScroll: true });
     }
   };
 
@@ -117,7 +116,7 @@ export class WalkMode {
       }
 
       const mouse = this.input.consumeMouseDelta();
-      const canLook = this.input.pointerLocked || this._lookActive;
+      const canLook = this._lookActive || this.input.isMouseDown(0) || this.input.isMouseDown(2);
       if (canLook && (mouse.x !== 0 || mouse.y !== 0)) {
         this.tpsCamera.applyMouseDelta(mouse);
       }

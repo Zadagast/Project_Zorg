@@ -41,7 +41,7 @@ export class ModeManager {
       this.transitioning = true;
       this.mode = MODES.TRANSITIONING;
       this.planetariumMode.exit();
-      this.setHint('Click canvas · WASD move · Drag to aim · Scroll to zoom · Esc to exit');
+      this.setHint('Click and drag to look · WASD move · Scroll to zoom · Esc to exit');
 
       const { startDist, targetDist } = this.walkMode.prepareLanding(body, landingPoint);
 
