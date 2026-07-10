@@ -14,39 +14,42 @@ const _north = new THREE.Vector3();
 const _mat = new THREE.Matrix4();
 const _qPitch = new THREE.Quaternion();
 
-/** Fixed TPS camera distance — character-scale, not planet-scale. */
-const TPS_DISTANCE = 5.2;
-const TPS_MIN_DISTANCE = 3.2;
-const TPS_SHOULDER = 0.55;
+/** Fortnite-style over-the-shoulder defaults (character-scale units). */
+const ARM_LENGTH = 4.8;
+const ARM_MIN = 3;
+const SHOULDER = 0.62;
+const DEFAULT_PITCH = -0.28;
 
 /**
- * Third-person shooter camera — orbits a moving chest pivot on the surface.
- * Yaw/pitch share one view direction; horizon locked to local surface up.
+ * Fortnite-style TPS: control rotation (yaw/pitch) drives a spring arm behind the
+ * player. Mouse X yaws the whole view around surface up; mouse Y pitches look.
  */
 export class ThirdPersonCamera {
   constructor(camera) {
     this.camera = camera;
-    this.distance = TPS_DISTANCE;
-    this.minDistance = TPS_MIN_DISTANCE;
+    this.distance = ARM_LENGTH;
+    this.minDistance = ARM_MIN;
     this.maxDistance = 40;
-    this.pitch = -0.22;
-    this.minPitch = -0.45;
-    this.maxPitch = 0.55;
+    /** Control rotation pitch — negative looks slightly down at the character. */
+    this.pitch = DEFAULT_PITCH;
+    this.minPitch = -1.1;
+    this.maxPitch = 0.75;
+    /** Control rotation yaw around local up. */
     this.yaw = 0;
-    this.shoulderOffset = TPS_SHOULDER;
+    this.shoulderOffset = SHOULDER;
     this.exitDistance = 20;
-    this.mouseSensitivity = 0.0038;
+    this.mouseSensitivity = 0.0042;
     this.wheelSensitivity = 0.012;
-    this.walkFov = 60;
+    this.walkFov = 80;
     this._savedFov = null;
   }
 
   setDistanceForBody(radius) {
-    this.distance = TPS_DISTANCE;
-    this.minDistance = TPS_MIN_DISTANCE;
+    this.distance = ARM_LENGTH;
+    this.minDistance = ARM_MIN;
     this.exitDistance = Math.max(radius * EXIT_ZOOM_FACTOR, 22);
     this.maxDistance = this.exitDistance * 1.05;
-    this.pitch = -0.22;
+    this.pitch = DEFAULT_PITCH;
   }
 
   enterWalkMode() {
@@ -61,6 +64,7 @@ export class ThirdPersonCamera {
     this.camera.updateProjectionMatrix();
   }
 
+  /** Fortnite: mouse X → yaw, mouse Y → pitch. */
   applyMouseDelta(delta) {
     this.yaw -= delta.x * this.mouseSensitivity;
     this.pitch -= delta.y * this.mouseSensitivity;
@@ -82,29 +86,35 @@ export class ThirdPersonCamera {
     return this.distance;
   }
 
-  _writeFlatForward(up, target) {
+  getYaw() {
+    return this.yaw;
+  }
+
+  /** Horizontal control forward (Fortnite movement yaw — no pitch). */
+  getControlForward(up, target) {
     const basis = tangentBasis(up);
     _east.copy(basis.east);
     _north.copy(basis.north);
     return target.copy(_north).multiplyScalar(Math.cos(this.yaw)).addScaledVector(_east, Math.sin(this.yaw));
   }
 
-  _writeViewDirection(up, target) {
-    this._writeFlatForward(up, _forward);
+  /** Pitched view direction — where the crosshair points. */
+  getViewDirection(up, target) {
+    this.getControlForward(up, _forward);
     _right.crossVectors(_forward, up).normalize();
     _qPitch.setFromAxisAngle(_right, this.pitch);
     return target.copy(_forward).applyQuaternion(_qPitch).normalize();
   }
 
-  _writeCameraPosition(pivot, up, target) {
-    this._writeFlatForward(up, _forward);
+  /** Spring arm: pivot → back along view + shoulder offset. */
+  _writeSpringArmPosition(pivot, up, target) {
+    this.getViewDirection(up, _view);
+    this.getControlForward(up, _forward);
     _right.crossVectors(_forward, up).normalize();
-    this._writeViewDirection(up, _view);
-
     return target
       .copy(pivot)
-      .addScaledVector(_right, this.shoulderOffset)
-      .addScaledVector(_view, -this.distance);
+      .addScaledVector(_view, -this.distance)
+      .addScaledVector(_right, this.shoulderOffset);
   }
 
   _orientAlongView(position, viewDir, up) {
@@ -141,7 +151,7 @@ export class ThirdPersonCamera {
     }
     if (_view.lengthSq() < 1e-4) {
       this.yaw = 0;
-      this.pitch = -0.22;
+      this.pitch = DEFAULT_PITCH;
       return;
     }
     _view.normalize();
@@ -166,8 +176,8 @@ export class ThirdPersonCamera {
 
   applyCameraPose(pivot, up) {
     _pivot.copy(pivot);
-    this._writeViewDirection(up, _view);
-    this._writeCameraPosition(_pivot, up, _desired);
+    this.getViewDirection(up, _view);
+    this._writeSpringArmPosition(_pivot, up, _desired);
 
     if (!Number.isFinite(_desired.x) || !Number.isFinite(_view.x)) return;
 
@@ -179,7 +189,7 @@ export class ThirdPersonCamera {
   }
 
   getMovementBasis(_pivot, up) {
-    this._writeFlatForward(up, _forward);
+    this.getControlForward(up, _forward);
     _right.crossVectors(_forward, up).normalize();
     return { forward: _forward, right: _right, up };
   }

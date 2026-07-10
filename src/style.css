@@ -121,3 +121,39 @@ body.pointer-locked canvas {
   left: 50%;
   transform: translate(-50%, -50%);
 }
+
+#click-to-play {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+
+#click-to-play[hidden] {
+  display: none !important;
+}
+
+.click-to-play-card {
+  padding: 28px 48px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(12, 16, 28, 0.85);
+  text-align: center;
+  pointer-events: none;
+}
+
+.click-to-play-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.click-to-play-sub {
+  font-size: 1rem;
+  color: #a8c4ff;
+}
