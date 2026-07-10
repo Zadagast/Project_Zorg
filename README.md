@@ -60,6 +60,10 @@ Replace `YOUR_USERNAME` with your GitHub username.
 - Drag or click the canvas to look
 - Scroll out or press Esc to return to planetarium view
 
+## Character models (AI `.vox`)
+
+See [public/models/README.md](public/models/README.md). Drop `player.vox` / `enemy.vox` from Sorceress or VoxelSprites into `public/models/`.
+
 ## License
 
 Game code: proprietary. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for open-source dependencies.

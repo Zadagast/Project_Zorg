@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { tangentBasis } from '../utils/SphericalMath.js';
+import { parallelTransportDirection, projectOntoTangentPlane, tangentBasis } from '../utils/SphericalMath.js';
 import { EXIT_ZOOM_FACTOR } from '../config.js';
 
 const _pivot = new THREE.Vector3();
@@ -9,20 +9,18 @@ const _right = new THREE.Vector3();
 const _flat = new THREE.Vector3();
 const _toCamera = new THREE.Vector3();
 const _view = new THREE.Vector3();
-const _east = new THREE.Vector3();
-const _north = new THREE.Vector3();
 const _mat = new THREE.Matrix4();
 const _qPitch = new THREE.Quaternion();
+const _qYaw = new THREE.Quaternion();
 
-/** Fortnite-style over-the-shoulder defaults (character-scale units). */
 const ARM_LENGTH = 4.8;
 const ARM_MIN = 3;
 const SHOULDER = 0.62;
 const DEFAULT_PITCH = -0.28;
 
 /**
- * Fortnite-style TPS: control rotation (yaw/pitch) drives a spring arm behind the
- * player. Mouse X yaws the whole view around surface up; mouse Y pitches look.
+ * Flat-plane TPS on a sphere: store look direction as a tangent vector and
+ * parallel-transport it when the surface normal changes — no yaw drift.
  */
 export class ThirdPersonCamera {
   constructor(camera) {
@@ -30,12 +28,12 @@ export class ThirdPersonCamera {
     this.distance = ARM_LENGTH;
     this.minDistance = ARM_MIN;
     this.maxDistance = 40;
-    /** Control rotation pitch — negative looks slightly down at the character. */
     this.pitch = DEFAULT_PITCH;
     this.minPitch = -1.1;
     this.maxPitch = 0.75;
-    /** Control rotation yaw around local up. */
-    this.yaw = 0;
+    /** World-space horizontal look direction (tangent to surface). */
+    this._controlForward = new THREE.Vector3(0, 0, -1);
+    this._lastUp = new THREE.Vector3(0, 1, 0);
     this.shoulderOffset = SHOULDER;
     this.exitDistance = 20;
     this.mouseSensitivity = 0.0042;
@@ -56,6 +54,7 @@ export class ThirdPersonCamera {
     this._savedFov = this.camera.fov;
     this.camera.fov = this.walkFov;
     this.camera.updateProjectionMatrix();
+    this._lastUp.set(0, 1, 0);
   }
 
   exitWalkMode() {
@@ -64,9 +63,20 @@ export class ThirdPersonCamera {
     this.camera.updateProjectionMatrix();
   }
 
-  /** Fortnite: mouse X → yaw, mouse Y → pitch. */
-  applyMouseDelta(delta) {
-    this.yaw -= delta.x * this.mouseSensitivity;
+  /** Carry control forward when walking changes the surface normal. */
+  syncToSurface(up) {
+    if (this._lastUp.lengthSq() > 0.5 && this._lastUp.dot(up) < 0.9999) {
+      parallelTransportDirection(this._controlForward, this._lastUp, up, this._controlForward);
+    } else {
+      projectOntoTangentPlane(this._controlForward, up, this._controlForward);
+    }
+    this._lastUp.copy(up);
+  }
+
+  applyMouseDelta(delta, up) {
+    _qYaw.setFromAxisAngle(up, -delta.x * this.mouseSensitivity);
+    this._controlForward.applyQuaternion(_qYaw);
+    projectOntoTangentPlane(this._controlForward, up, this._controlForward);
     this.pitch -= delta.y * this.mouseSensitivity;
     this.pitch = THREE.MathUtils.clamp(this.pitch, this.minPitch, this.maxPitch);
   }
@@ -86,19 +96,11 @@ export class ThirdPersonCamera {
     return this.distance;
   }
 
-  getYaw() {
-    return this.yaw;
-  }
-
-  /** Horizontal control forward (Fortnite movement yaw — no pitch). */
+  /** Horizontal control forward — movement + camera yaw (no pitch). */
   getControlForward(up, target) {
-    const basis = tangentBasis(up);
-    _east.copy(basis.east);
-    _north.copy(basis.north);
-    return target.copy(_north).multiplyScalar(Math.cos(this.yaw)).addScaledVector(_east, Math.sin(this.yaw));
+    return projectOntoTangentPlane(this._controlForward, up, target);
   }
 
-  /** Pitched view direction — where the crosshair points. */
   getViewDirection(up, target) {
     this.getControlForward(up, _forward);
     _right.crossVectors(_forward, up).normalize();
@@ -106,7 +108,6 @@ export class ThirdPersonCamera {
     return target.copy(_forward).applyQuaternion(_qPitch).normalize();
   }
 
-  /** Spring arm: pivot → back along view + shoulder offset. */
   _writeSpringArmPosition(pivot, up, target) {
     this.getViewDirection(up, _view);
     this.getControlForward(up, _forward);
@@ -135,9 +136,6 @@ export class ThirdPersonCamera {
 
   setApproachOrientation(pivot, up, cameraPosition, bodyCenter) {
     _pivot.copy(pivot);
-    const basis = tangentBasis(up);
-    _east.copy(basis.east);
-    _north.copy(basis.north);
 
     _toCamera.copy(cameraPosition).sub(_pivot);
     const startDist = _toCamera.length();
@@ -150,28 +148,26 @@ export class ThirdPersonCamera {
       _view.copy(_pivot).sub(bodyCenter);
     }
     if (_view.lengthSq() < 1e-4) {
-      this.yaw = 0;
+      projectOntoTangentPlane(new THREE.Vector3(0, 0, -1), up, this._controlForward);
       this.pitch = DEFAULT_PITCH;
+      this._lastUp.copy(up);
       return;
     }
     _view.normalize();
 
     _flat.copy(_view);
-    _flat.addScaledVector(up, -_flat.dot(up));
-    const horizLen = _flat.length();
-
-    if (horizLen > 1e-4) {
-      _flat.normalize();
-      this.yaw = Math.atan2(_flat.dot(_east), _flat.dot(_north));
-      this.pitch = THREE.MathUtils.clamp(
-        Math.asin(THREE.MathUtils.clamp(_view.dot(up), -1, 1)),
-        this.minPitch,
-        this.maxPitch,
-      );
-    } else {
-      this.yaw = 0;
-      this.pitch = _view.dot(up) > 0 ? this.maxPitch : this.minPitch;
+    projectOntoTangentPlane(_flat, up, this._controlForward);
+    if (this._controlForward.lengthSq() < 1e-8) {
+      projectOntoTangentPlane(new THREE.Vector3(0, 0, -1), up, this._controlForward);
     }
+
+    const pitchedComponent = _view.dot(up);
+    this.pitch = THREE.MathUtils.clamp(
+      Math.asin(THREE.MathUtils.clamp(pitchedComponent, -1, 1)),
+      this.minPitch,
+      this.maxPitch,
+    );
+    this._lastUp.copy(up);
   }
 
   applyCameraPose(pivot, up) {
@@ -185,6 +181,7 @@ export class ThirdPersonCamera {
   }
 
   update(pivot, up) {
+    this.syncToSurface(up);
     this.applyCameraPose(pivot, up);
   }
 

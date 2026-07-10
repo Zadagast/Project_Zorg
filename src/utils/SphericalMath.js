@@ -44,6 +44,34 @@ export function projectOntoTangentPlane(vector, up, target) {
   return safeNormalize(out, out);
 }
 
+/**
+ * Move a tangent direction from one surface normal to another without twisting
+ * (same technique Mario Galaxy / Outer Wilds use for sphere controls).
+ */
+export function parallelTransportDirection(direction, fromUp, toUp, target) {
+  const out = target ?? new THREE.Vector3();
+  out.copy(direction);
+
+  const dot = fromUp.dot(toUp);
+  if (dot > 0.9999) {
+    return projectOntoTangentPlane(out, toUp, out);
+  }
+
+  if (dot < -0.9999) {
+    out.reflect(fromUp);
+    return projectOntoTangentPlane(out, toUp, out);
+  }
+
+  const axis = new THREE.Vector3().crossVectors(fromUp, toUp);
+  if (axis.lengthSq() < 1e-10) {
+    return projectOntoTangentPlane(out, toUp, out);
+  }
+  axis.normalize();
+  const angle = Math.acos(THREE.MathUtils.clamp(dot, -1, 1));
+  out.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(axis, angle));
+  return projectOntoTangentPlane(out, toUp, out);
+}
+
 export function snapToSphereSurface(body, direction, offset = 0) {
   const center = getWorldCenter(body);
   const dist = body.radius + offset;

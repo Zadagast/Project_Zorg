@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { tangentBasis } from '../utils/SphericalMath.js';
 
 const _rigUp = new THREE.Vector3(0, 1, 0);
 const _pole = new THREE.Vector3(0, 1, 0);
@@ -13,10 +12,8 @@ const _invRigQuat = new THREE.Quaternion();
 const _localForward = new THREE.Vector3();
 const _localRight = new THREE.Vector3();
 const _worldForward = new THREE.Vector3();
-const _tangentEast = new THREE.Vector3();
-const _tangentNorth = new THREE.Vector3();
+const _worldRight = new THREE.Vector3();
 
-/** Fixed walk speed in world units/sec — feels the same on every planet size. */
 const WALK_SPEED = 11;
 
 export class WalkRig {
@@ -30,9 +27,7 @@ export class WalkRig {
     this.savedBodyMatrix = new THREE.Matrix4();
     this.surfaceOffset = 0.5;
     this.playerHeight = 0;
-    /** Rotates the player from the landing pole to their current spot on the sphere. */
     this.surfaceRotation = new THREE.Quaternion();
-    this.playerFacing = 0;
     this.fillLight = new THREE.PointLight(0xc8d8ff, 1.1, 0, 1.5);
     this.fillLight.visible = false;
     scene.add(this.fillLight);
@@ -45,7 +40,6 @@ export class WalkRig {
     this.player = player;
     this.playerHeight = body.radius + this.surfaceOffset;
     this.surfaceRotation.identity();
-    this.playerFacing = 0;
 
     const center = body.getWorldCenter(new THREE.Vector3());
     const landingDir = landingPoint.clone().sub(center).normalize();
@@ -123,7 +117,6 @@ export class WalkRig {
     this.getSurfaceLocalUp(_localUp);
     _localPos.copy(_localUp).multiplyScalar(this.playerHeight);
     this.player.root.position.copy(_localPos);
-    this.player.setSurfacePose(_localUp, this.playerFacing);
   }
 
   updateFillLight() {
@@ -131,14 +124,20 @@ export class WalkRig {
     this.fillLight.position.copy(this.getCameraPivot(_focusScratch));
   }
 
+  /**
+   * Camera-relative WASD on the tangent plane — same as flat TPS, applied as
+   * a small rotation around the planet center.
+   */
   applyMovement(input, basis, dt) {
     if (!this.attached || !this.body) return false;
 
     const { forward, right } = basis;
+    _worldForward.copy(forward);
+    _worldRight.copy(right);
     _invRigQuat.copy(this.rig.quaternion).invert();
 
-    _localForward.copy(forward).applyQuaternion(_invRigQuat);
-    _localRight.copy(right).applyQuaternion(_invRigQuat);
+    _localForward.copy(_worldForward).applyQuaternion(_invRigQuat);
+    _localRight.copy(_worldRight).applyQuaternion(_invRigQuat);
     this.getSurfaceLocalUp(_localUp);
 
     _localForward.addScaledVector(_localUp, -_localForward.dot(_localUp));
@@ -165,28 +164,22 @@ export class WalkRig {
     this.surfaceRotation.premultiply(_deltaScratch);
     this.surfaceRotation.normalize();
 
+    this.player.setSurfaceFacing(_localUp, _moveScratch);
     this._updatePlayerTransform();
     this.updateFillLight();
     return true;
   }
 
-  syncPlayerFacing(tpsCamera, focusBase, up) {
+  setPlayerFacingFromCamera(tpsCamera, up) {
     if (!this.player) return;
-    const { forward } = tpsCamera.getMovementBasis(focusBase, up);
-
+    tpsCamera.getControlForward(up, _worldForward);
     _invRigQuat.copy(this.rig.quaternion).invert();
-    _worldForward.copy(forward);
     _localForward.copy(_worldForward).applyQuaternion(_invRigQuat);
-
     this.getSurfaceLocalUp(_localUp);
     _localForward.addScaledVector(_localUp, -_localForward.dot(_localUp));
     if (_localForward.lengthSq() < 1e-8) return;
     _localForward.normalize();
-
-    const basis = tangentBasis(_localUp);
-    _tangentEast.copy(basis.east);
-    _tangentNorth.copy(basis.north);
-    this.playerFacing = Math.atan2(_localForward.dot(_tangentEast), _localForward.dot(_tangentNorth));
+    this.player.setSurfaceFacing(_localUp, _localForward);
     this._updatePlayerTransform();
   }
 

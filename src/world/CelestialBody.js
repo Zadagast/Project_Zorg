@@ -46,9 +46,10 @@ export class CelestialBody {
     geometry.setAttribute('color', new THREE.BufferAttribute(baseColors, 3));
 
     const material = this.isSun
-      ? new THREE.MeshBasicMaterial({ color: 0xffffff })
+      ? new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true })
       : new THREE.MeshLambertMaterial({
           color: 0xffffff,
+          vertexColors: true,
           emissive: new THREE.Color(0x000000),
         });
 

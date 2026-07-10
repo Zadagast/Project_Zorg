@@ -31,7 +31,17 @@ export class Player {
     this.yaw = 0;
   }
 
-  /** Stand on a surface normal (rig-local) and face yaw around that normal. */
+  /** Stand on a surface normal (rig-local) facing a tangent direction. */
+  setSurfaceFacing(localUp, localForward) {
+    this.up.copy(localUp);
+    const right = new THREE.Vector3().crossVectors(localForward, localUp).normalize();
+    const back = new THREE.Vector3().crossVectors(localUp, right).normalize();
+    const m = new THREE.Matrix4();
+    m.makeBasis(right, localUp, back);
+    this.root.quaternion.setFromRotationMatrix(m);
+  }
+
+  /** @deprecated use setSurfaceFacing */
   setSurfacePose(localUp, yaw) {
     this.yaw = yaw;
     this.up.copy(localUp);

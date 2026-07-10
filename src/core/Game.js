@@ -6,10 +6,10 @@ import { InputManager } from './InputManager.js';
 import { ModeManager } from './ModeManager.js';
 import { PlanetariumMode } from '../modes/PlanetariumMode.js';
 import { WalkMode } from '../modes/WalkMode.js';
-import { Player } from '../player/Player.js';
+import { VoxelCharacter } from '../player/VoxelCharacter.js';
 import { ThirdPersonCamera } from '../player/ThirdPersonCamera.js';
 import { updateTweens } from '../utils/transitions.js';
-import { MODES, APP_VERSION } from '../config.js';
+import { MODES, APP_VERSION, CHARACTER_MODELS } from '../config.js';
 
 export class Game {
   constructor() {
@@ -30,9 +30,9 @@ export class Game {
     this.starfield = createStarfield();
     scene.add(this.starfield);
     this.ready = false;
+    this.player = null;
     this.input = new InputManager(renderer.domElement);
 
-    const player = new Player();
     const tpsCamera = new ThirdPersonCamera(camera);
 
     this.planetariumMode = new PlanetariumMode({
@@ -47,7 +47,7 @@ export class Game {
       scene,
       camera,
       solarSystem: null,
-      player,
+      player: null,
       tpsCamera,
       input: this.input,
       crosshair: this.ui.crosshair,
@@ -73,6 +73,13 @@ export class Game {
   async _initWorld() {
     try {
       await new Promise((resolve) => requestAnimationFrame(resolve));
+      if (this.ui.loading) this.ui.loading.textContent = 'Loading player model…';
+      this.player = await VoxelCharacter.load({
+        url: CHARACTER_MODELS.player,
+        fallback: 'humanoid',
+      });
+      this.walkMode.player = this.player;
+
       const solarSystem = await SolarSystem.create(this.scene, (name) => {
         if (this.ui.loading) this.ui.loading.textContent = `Loading ${name}…`;
       });

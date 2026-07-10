@@ -1,4 +1,10 @@
-export const APP_VERSION = '0.4.1';
+export const APP_VERSION = '0.6.0';
+
+/** Drop AI-generated MagicaVoxel files in public/models/ with these names. */
+export const CHARACTER_MODELS = {
+  player: `${import.meta.env.BASE_URL}models/player.vox`,
+  enemy: `${import.meta.env.BASE_URL}models/enemy.vox`,
+};
 
 export const VOXEL_SIZE = 1;
 

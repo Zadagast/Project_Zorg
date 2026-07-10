@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { WalkRig } from '../player/WalkRig.js';
 
 const WHEEL_GRACE_MS = 600;
-const _focusBase = new THREE.Vector3();
 const _cameraPivot = new THREE.Vector3();
 const _up = new THREE.Vector3();
 const _bodyCenter = new THREE.Vector3();
@@ -92,11 +91,10 @@ export class WalkMode {
     this.input.consumeWheelDelta();
     this.input.consumeMouseDelta();
 
-    const focusBase = this.walkRig.getFocusBase(_focusBase);
     const cameraPivot = this.walkRig.getCameraPivot(_cameraPivot);
     const up = this.walkRig.getWorldUp(_up);
     this.tpsCamera.applyCameraPose(cameraPivot, up);
-    this.walkRig.syncPlayerFacing(this.tpsCamera, focusBase, up);
+    this.walkRig.setPlayerFacingFromCamera(this.tpsCamera, up);
 
     this._setCrosshairVisible(true);
     if (this.onHintChange) {
@@ -125,11 +123,12 @@ export class WalkMode {
     try {
       const pivot = this.walkRig.getCameraPivot(_cameraPivot);
       const up = this.walkRig.getWorldUp(_up);
-      const focusBase = this.walkRig.getFocusBase(_focusBase);
+
+      this.tpsCamera.syncToSurface(up);
 
       const mouse = this.input.consumeMouseDelta();
       if (mouse.x !== 0 || mouse.y !== 0) {
-        this.tpsCamera.applyMouseDelta(mouse);
+        this.tpsCamera.applyMouseDelta(mouse, up);
       }
 
       const sinceEnter = performance.now() - this._enterTime;
@@ -152,11 +151,13 @@ export class WalkMode {
         return;
       }
 
-      this.walkRig.syncPlayerFacing(this.tpsCamera, focusBase, up);
       const movementBasis = this.tpsCamera.getMovementBasis(pivot, up);
       this.walkRig.applyMovement(this.input, movementBasis, dt);
 
-      this.tpsCamera.update(pivot, up);
+      const pivotAfter = this.walkRig.getCameraPivot(_cameraPivot);
+      const upAfter = this.walkRig.getWorldUp(_up);
+
+      this.tpsCamera.update(pivotAfter, upAfter);
       this.walkRig.updateFillLight();
     } catch (err) {
       console.error('Walk mode update failed:', err);
