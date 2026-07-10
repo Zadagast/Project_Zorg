@@ -12,6 +12,7 @@ export class CelestialBody {
     this.isSun = !!def.isSun;
     this.hasRings = !!def.hasRings;
     this.color = def.color;
+    this.voxelStep = 1;
 
     this.group = new THREE.Group();
     this.group.position.set(def.distance, 0, 0);
@@ -36,25 +37,18 @@ export class CelestialBody {
       isSun: !!this.isSun,
       hasRings: this.hasRings,
     });
+    this.voxelStep = step;
 
     const geometry = new THREE.BoxGeometry(step, step, step);
-    // InstancedMesh multiplies geometry color × instance color; default geometry has no
-    // color attribute which zeroes vColor and renders black voxels.
     const baseColors = new Float32Array(geometry.attributes.position.count * 3);
     baseColors.fill(1);
     geometry.setAttribute('color', new THREE.BufferAttribute(baseColors, 3));
 
     const material = this.isSun
-      ? new THREE.MeshStandardMaterial({
-          roughness: 0.6,
-          metalness: 0,
-          emissive: new THREE.Color(0xff8800),
-          emissiveIntensity: 1.2,
-          vertexColors: true,
-        })
-      : new THREE.MeshBasicMaterial({
+      ? new THREE.MeshBasicMaterial({ color: 0xffffff })
+      : new THREE.MeshLambertMaterial({
           color: 0xffffff,
-          vertexColors: true,
+          emissive: new THREE.Color(0x000000),
         });
 
     this.mesh = new THREE.InstancedMesh(geometry, material, voxels.length);
@@ -88,12 +82,13 @@ export class CelestialBody {
 
   setHighlighted(on) {
     if (!this.isSun) {
-      this.mesh.material.color.set(on ? 0xddeeff : 0xffffff);
+      this.mesh.material.emissive.set(on ? 0x334466 : 0x000000);
     }
   }
 
   setVisible(visible) {
     this.group.visible = visible;
+    if (this.label) this.label.visible = visible;
   }
 
   raycastSurface(worldOrigin, worldDirection, surfaceOffset = 0.5) {

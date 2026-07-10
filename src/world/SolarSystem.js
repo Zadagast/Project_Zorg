@@ -1,6 +1,7 @@
 import { CELESTIAL_BODIES } from '../config.js';
 import { CelestialBody } from './CelestialBody.js';
-import { createSunLight, createSunDirectionalLight } from '../rendering/SceneSetup.js';
+import { createSunLight } from '../rendering/SceneSetup.js';
+import { attachBodyLabel } from '../rendering/PlanetLabels.js';
 
 function yieldFrame() {
   return new Promise((resolve) => requestAnimationFrame(resolve));
@@ -11,9 +12,7 @@ export class SolarSystem {
     this.scene = scene;
     this.bodies = [];
     this.sunLight = createSunLight();
-    this.sunDirectional = createSunDirectionalLight();
     scene.add(this.sunLight);
-    scene.add(this.sunDirectional);
   }
 
   static async create(scene, onProgress) {
@@ -21,6 +20,7 @@ export class SolarSystem {
     for (const def of CELESTIAL_BODIES) {
       await yieldFrame();
       const body = new CelestialBody(def);
+      attachBodyLabel(body, body.voxelStep);
       system.bodies.push(body);
       scene.add(body.group);
       onProgress?.(def.name);

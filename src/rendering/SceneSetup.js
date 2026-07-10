@@ -1,16 +1,18 @@
 import * as THREE from 'three';
+import { SOLAR_SYSTEM_CENTER_X } from '../config.js';
 
 export function createSceneSetup() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x000008);
 
   const camera = new THREE.PerspectiveCamera(
-    60,
+    50,
     window.innerWidth / window.innerHeight,
     0.1,
     15000,
   );
-  camera.position.set(600, 400, 1400);
+  camera.position.set(SOLAR_SYSTEM_CENTER_X, 60, 580);
+  camera.lookAt(SOLAR_SYSTEM_CENTER_X, 0, 0);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -20,24 +22,23 @@ export function createSceneSetup() {
   renderer.domElement.style.outline = 'none';
   document.body.appendChild(renderer.domElement);
 
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.58);
   scene.add(ambientLight);
 
-  const hemiLight = new THREE.HemisphereLight(0xbfd4ff, 0x1a1028, 0.45);
-  scene.add(hemiLight);
+  // Sun sits at origin — light planets from the left like the reference art.
+  const sunLight = new THREE.DirectionalLight(0xfff4e8, 1.35);
+  sunLight.position.set(-1, 0.32, 0.38);
+  scene.add(sunLight);
+
+  const fillLight = new THREE.DirectionalLight(0x8899cc, 0.28);
+  fillLight.position.set(0.5, 0.15, -0.7);
+  scene.add(fillLight);
 
   return { scene, camera, renderer };
 }
 
 export function createSunLight() {
-  const sunLight = new THREE.PointLight(0xfff5e6, 25000, 15000, 1.5);
+  const sunLight = new THREE.PointLight(0xfff5e6, 32000, 15000, 1.5);
   sunLight.position.set(0, 0, 0);
   return sunLight;
-}
-
-/** Directional sunlight so planet colors stay visible from any camera angle. */
-export function createSunDirectionalLight() {
-  const light = new THREE.DirectionalLight(0xfff0dd, 2.2);
-  light.position.set(-1, 0.35, 0.25);
-  return light;
 }

@@ -1,5 +1,6 @@
 import { createSceneSetup } from '../rendering/SceneSetup.js';
 import { createStarfield } from '../rendering/Starfield.js';
+import { createLabelRenderer } from '../rendering/PlanetLabels.js';
 import { SolarSystem } from '../world/SolarSystem.js';
 import { InputManager } from './InputManager.js';
 import { ModeManager } from './ModeManager.js';
@@ -23,9 +24,10 @@ export class Game {
     this.scene = scene;
     this.camera = camera;
     this.renderer = renderer;
+    this.labelRenderer = createLabelRenderer();
+    this.starfield = createStarfield();
+    scene.add(this.starfield);
     this.ready = false;
-
-    scene.add(createStarfield());
     this.input = new InputManager(renderer.domElement);
 
     const player = new Player();
@@ -89,6 +91,7 @@ export class Game {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.labelRenderer.setSize(window.innerWidth, window.innerHeight);
   };
 
   _loop = () => {
@@ -104,6 +107,7 @@ export class Game {
     if (this.ready) {
       this.modeManager.update(dt);
       this.renderer.render(this.scene, this.camera);
+      this.labelRenderer.render(this.scene, this.camera);
     }
   };
 }

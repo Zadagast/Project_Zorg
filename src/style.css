@@ -17,6 +17,24 @@ canvas {
   display: block;
 }
 
+.planet-label-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.planet-label {
+  color: #e8e8f0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: center;
+  white-space: nowrap;
+  transform: translate(-50%, 0);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+}
+
 #ui {
   position: fixed;
   top: 16px;

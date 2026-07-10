@@ -8,7 +8,6 @@
   <meta http-equiv="Expires" content="0" />
   <title>Voxel Planetarium</title>
   <script>
-    // Recover from cached index.html pointing at deleted hashed asset bundles.
     window.addEventListener('error', (event) => {
       const target = event.target;
       if (!target || target.tagName !== 'SCRIPT' || !target.src) return;
@@ -23,7 +22,7 @@
   <div id="ui">
     <h1>Voxel Planetarium</h1>
     <p id="loading">Loading solar system…</p>
-    <p id="hint">Drag to orbit · Double-click a planet to focus · Scroll to zoom</p>
+    <p id="hint">Drag to orbit · Double-click a planet to focus · Scroll to zoom · Zoom in to land</p>
     <p id="body-label"></p>
   </div>
   <div id="crosshair" hidden aria-hidden="true"></div>

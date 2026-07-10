@@ -3,9 +3,9 @@ import { createNoise3D } from 'simplex-noise';
 
 const noise3D = createNoise3D();
 
-/** Chunky voxel scale — ~14–20 blocks across each planet diameter. */
+/** ~10–14 chunky blocks across each planet diameter (reference style). */
 export function voxelStepForRadius(radius) {
-  return Math.max(2, Math.round(radius / 13));
+  return Math.max(3, Math.round(radius / 7));
 }
 
 function sampleNoise(x, y, z, freq, seed = 0) {
@@ -26,84 +26,77 @@ function dirDot(x, y, z, dx, dy, dz) {
   return (x * dx + y * dy + z * dz) / len;
 }
 
-/** Strong left-side sunlight like the reference art. */
-function shadeForSun(hex, x, y, z) {
-  const len = Math.sqrt(x * x + y * y + z * z) || 1;
-  const ndotl = THREE.MathUtils.clamp(
-    (-x / len) * 0.96 + (y / len) * 0.14 + (z / len) * 0.06,
-    0,
-    1,
-  );
-  const shade = 0.48 + ndotl * 0.52;
-  return new THREE.Color(hex).multiplyScalar(shade).getHex();
-}
-
 function pickColor(body, x, y, z, radius, step) {
   const lat = getLatitude(y, radius);
-  const freq = 4.2 / step;
+  const freq = 3.6 / step;
   const n = sampleNoise(x, y, z, freq);
   const fine = sampleNoise(x, y, z, freq * 2.4, 13);
 
   if (body.isSun) {
-    const heat = 0.75 + sampleNoise(x, y, z, 0.22, 3) * 0.25;
-    const tone = fine > 0.2 ? 0xffcc33 : fine > -0.25 ? 0xff9900 : 0xff6600;
+    const heat = 0.8 + sampleNoise(x, y, z, 0.18, 3) * 0.2;
+    const tone = fine > 0.25 ? 0xffd633 : fine > -0.2 ? 0xff9900 : 0xe85a00;
     return new THREE.Color(tone).multiplyScalar(heat).getHex();
   }
 
   switch (body.name) {
     case 'Mercury': {
       const crater = sampleNoise(x, y, z, freq * 1.8, 19);
-      return crater > 0.42 ? 0x565c64 : crater > 0.05 ? 0x8a939e : 0xadb6c2;
+      return crater > 0.42 ? 0x505860 : crater > 0.05 ? 0x7a848e : 0xa8b2bc;
     }
 
     case 'Venus': {
       const swirl = Math.sin(x * freq * 1.6 + y * freq * 1.2 + n * 2.8);
-      if (swirl > 0.35) return 0xe8c88a;
-      if (swirl > -0.15) return 0xc99a52;
-      return 0x9a7038;
+      if (swirl > 0.35) return 0xf0d090;
+      if (swirl > -0.15) return 0xcc9850;
+      return 0x966830;
     }
 
     case 'Earth': {
       const clouds = sampleNoise(x, y, z, freq * 2.8, 41);
-      if (Math.abs(lat) > 0.95) return 0xf4f4f4;
+      if (Math.abs(lat) > 0.95) return 0xffffff;
       if (clouds > 0.38) return 0xffffff;
-      if (n > 0.12) return fine > 0.15 ? 0x3d9e46 : 0x2f7a36;
-      if (n > -0.08) return 0xc9a66a;
-      return fine > 0.1 ? 0x1a5cad : 0x144f96;
+      if (n > 0.12) return fine > 0.15 ? 0x42a848 : 0x348838;
+      if (n > -0.08) return 0xd4b070;
+      return fine > 0.1 ? 0x2068b8 : 0x1858a0;
     }
 
     case 'Mars': {
-      if (Math.abs(lat) > 1.05) return 0xf2f2f2;
+      if (Math.abs(lat) > 1.05) return 0xffffff;
       const dust = sampleNoise(x, y, z, freq * 1.5, 29);
-      if (dust > 0.35) return 0xd65a32;
-      if (dust > -0.1) return 0xb04624;
-      return 0x7a3018;
+      if (dust > 0.35) return 0xe06030;
+      if (dust > -0.1) return 0xc04820;
+      return 0x883018;
     }
 
     case 'Jupiter': {
       const band = Math.sin(y * freq * 1.35 + sampleNoise(x, y, z, freq * 0.8, 53) * 2.2);
       const spot = dirDot(x, y, z, 0.72, -0.18, 0.42);
-      if (spot > 0.9 && y > -radius * 0.15 && y < radius * 0.35) return 0xc0392b;
-      if (band > 0.45) return 0xf0e0c8;
-      if (band > 0.05) return 0xd4a574;
-      if (band > -0.35) return 0xb07840;
-      return 0x8b5a2b;
+      if (spot > 0.9 && y > -radius * 0.15 && y < radius * 0.35) return 0xd03028;
+      if (band > 0.45) return 0xf8ecd8;
+      if (band > 0.05) return 0xe0b878;
+      if (band > -0.35) return 0xc08848;
+      return 0x986838;
     }
 
     case 'Saturn': {
       const band = Math.sin(y * freq * 1.2 + n * 1.8);
-      if (band > 0.4) return 0xf2dcc0;
-      if (band > 0) return 0xd9b88a;
-      if (band > -0.35) return 0xc49a62;
-      return 0x9a7348;
+      if (band > 0.4) return 0xf8ecd8;
+      if (band > 0) return 0xe8c890;
+      if (band > -0.35) return 0xd0a868;
+      return 0xa88048;
     }
 
     case 'Uranus':
-      return fine > 0.1 ? 0xb8ece8 : 0x8fd9d4;
+      return fine > 0.1 ? 0xc0f0ec : 0x98e0dc;
 
     case 'Neptune': {
-      if (Math.abs(lat) > 0.92) return 0xd8ecff;
-      return fine > 0.05 ? 0x3566c9 : 0x244f9e;
+      if (Math.abs(lat) > 0.92) return 0xe8f4ff;
+      return fine > 0.05 ? 0x4070d8 : 0x2858b0;
+    }
+
+    case 'Pluto': {
+      const patch = sampleNoise(x, y, z, freq * 1.6, 61);
+      return patch > 0.2 ? 0xb89878 : 0x887058;
     }
 
     default:
@@ -113,9 +106,9 @@ function pickColor(body, x, y, z, radius, step) {
 
 function pickRingColor(x, z, distXZ, step) {
   const band = Math.sin(distXZ * (0.55 / step) + noise3D(x * 0.07, z * 0.07, 0) * 2.4);
-  if (band > 0.35) return 0xe8dcc0;
-  if (band > -0.2) return 0xcdb890;
-  return 0xa89268;
+  if (band > 0.35) return 0xf0e4c8;
+  if (band > -0.2) return 0xd8c098;
+  return 0xb89868;
 }
 
 function fillSolidSphere(body, voxels, step) {
@@ -129,10 +122,9 @@ function fillSolidSphere(body, voxels, step) {
       for (let z = min; z <= max; z += step) {
         const dist = Math.sqrt(x * x + y * y + z * z);
         if (dist > r) continue;
-        const color = pickColor(body, x, y, z, r, step);
         voxels.push({
           position: new THREE.Vector3(x, y, z),
-          color: body.isSun ? color : shadeForSun(color, x, y, z),
+          color: pickColor(body, x, y, z, r, step),
         });
       }
     }
@@ -151,10 +143,9 @@ function fillRingVoxels(body, voxels, step) {
       const distXZ = Math.sqrt(x * x + z * z);
       if (distXZ < innerRing || distXZ > outerRing) continue;
       for (const y of yLevels) {
-        const base = pickRingColor(x, z, distXZ, step);
         voxels.push({
           position: new THREE.Vector3(x, y, z),
-          color: shadeForSun(base, x, y || step * 0.01, z),
+          color: pickRingColor(x, z, distXZ, step),
         });
       }
     }
