@@ -18,7 +18,6 @@ export class Game {
       bodyLabel: document.getElementById('body-label'),
       loading: document.getElementById('loading'),
       crosshair: document.getElementById('crosshair'),
-      clickToPlay: document.getElementById('click-to-play'),
       version: document.getElementById('version'),
     };
     if (this.ui.version) this.ui.version.textContent = `v${APP_VERSION}`;
@@ -52,7 +51,6 @@ export class Game {
       tpsCamera,
       input: this.input,
       crosshair: this.ui.crosshair,
-      clickToPlay: this.ui.clickToPlay,
       onExitRequest: (body) => this._modeManager?.handleExitRequest(body),
       onHintChange: (text) => this._modeManager?.setHint(text),
     });

@@ -17,7 +17,6 @@ export class WalkMode {
     input,
     onExitRequest,
     crosshair,
-    clickToPlay,
     onHintChange,
   }) {
     this.scene = scene;
@@ -29,63 +28,27 @@ export class WalkMode {
     this.onExitRequest = onExitRequest;
     this.onHintChange = onHintChange;
     this.crosshair = crosshair;
-    this.clickToPlay = clickToPlay;
     this.walkRig = new WalkRig(scene);
     this.activeBody = null;
     this.enabled = false;
     this._enterTime = 0;
-    this._playing = false;
 
     input.domElement.addEventListener('contextmenu', this._onContextMenu);
-    this._onPointerLockChange = () => {
-      if (!this.enabled) return;
-      if (this.input.isPointerLocked()) {
-        this._setPlaying(true);
-      }
-    };
-    document.addEventListener('pointerlockchange', this._onPointerLockChange);
-
-    if (this.clickToPlay) {
-      this.clickToPlay.addEventListener('click', this._onClickToPlay);
-    }
   }
 
   _onContextMenu = (e) => {
     if (this.enabled) e.preventDefault();
   };
 
-  _onClickToPlay = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    this.input.domElement.focus({ preventScroll: true });
-    void this.input.requestPointerLock();
-  };
-
   _setCrosshairVisible(visible) {
     if (this.crosshair) this.crosshair.hidden = !visible;
-  }
-
-  _setPlaying(playing) {
-    this._playing = playing;
-    if (this.clickToPlay) {
-      this.clickToPlay.hidden = playing;
-    }
-    this._setCrosshairVisible(playing);
-    if (this.onHintChange) {
-      this.onHintChange(
-        playing
-          ? 'WASD move · Mouse look · Scroll out to leave · Esc exit'
-          : 'Click anywhere to capture mouse and look around',
-      );
-    }
   }
 
   prepareLanding(body, landingPoint) {
     this.activeBody = body;
     this.enabled = false;
-    this._playing = false;
     this.input.setWalkMode(false);
-    if (this.clickToPlay) this.clickToPlay.hidden = true;
+    this._setCrosshairVisible(false);
     this.tpsCamera.enterWalkMode();
 
     this.solarSystem.setBodiesVisibleExcept(body, false);
@@ -109,10 +72,8 @@ export class WalkMode {
 
   abortLanding() {
     this.enabled = false;
-    this._playing = false;
     this.activeBody = null;
     this.input.setWalkMode(false);
-    if (this.clickToPlay) this.clickToPlay.hidden = true;
     this._setCrosshairVisible(false);
     this.tpsCamera.exitWalkMode();
     if (this.player.root.parent) {
@@ -137,18 +98,15 @@ export class WalkMode {
     this.tpsCamera.applyCameraPose(cameraPivot, up);
     this.walkRig.syncPlayerFacing(this.tpsCamera, focusBase, up);
 
-    this._setPlaying(false);
-    if (this.clickToPlay) this.clickToPlay.hidden = false;
+    this._setCrosshairVisible(true);
     if (this.onHintChange) {
-      this.onHintChange('Click anywhere to capture mouse and look around');
+      this.onHintChange('WASD move · Click canvas + drag to look · Scroll out to leave · Esc exit');
     }
   }
 
   exit() {
     this.enabled = false;
-    this._playing = false;
     this.input.setWalkMode(false);
-    if (this.clickToPlay) this.clickToPlay.hidden = true;
     this._setCrosshairVisible(false);
     this.tpsCamera.exitWalkMode();
     if (this.player.root.parent) {
@@ -169,41 +127,34 @@ export class WalkMode {
       const up = this.walkRig.getWorldUp(_up);
       const focusBase = this.walkRig.getFocusBase(_focusBase);
 
-      // Fortnite: free mouse look whenever pointer is captured.
-      if (this._playing) {
-        const mouse = this.input.consumeMouseDelta();
-        if (mouse.x !== 0 || mouse.y !== 0) {
-          this.tpsCamera.applyMouseDelta(mouse);
-        }
-      } else {
-        this.input.consumeMouseDelta();
+      const mouse = this.input.consumeMouseDelta();
+      if (mouse.x !== 0 || mouse.y !== 0) {
+        this.tpsCamera.applyMouseDelta(mouse);
       }
 
-      if (this._playing) {
-        const sinceEnter = performance.now() - this._enterTime;
-        let wheel = 0;
-        if (sinceEnter > WHEEL_GRACE_MS) {
-          wheel = this.input.consumeWheelDelta();
-        } else {
-          this.input.consumeWheelDelta();
-        }
-        if (wheel !== 0) {
-          const zoom = this.tpsCamera.adjustDistance(wheel);
-          if (zoom.atExit || (zoom.scrolledOut && zoom.atMax)) {
-            this.onExitRequest(this.activeBody);
-            return;
-          }
-        }
-
-        if (this.input.isDown('Escape')) {
+      const sinceEnter = performance.now() - this._enterTime;
+      let wheel = 0;
+      if (sinceEnter > WHEEL_GRACE_MS) {
+        wheel = this.input.consumeWheelDelta();
+      } else {
+        this.input.consumeWheelDelta();
+      }
+      if (wheel !== 0) {
+        const zoom = this.tpsCamera.adjustDistance(wheel);
+        if (zoom.atExit || (zoom.scrolledOut && zoom.atMax)) {
           this.onExitRequest(this.activeBody);
           return;
         }
-
-        this.walkRig.syncPlayerFacing(this.tpsCamera, focusBase, up);
-        const movementBasis = this.tpsCamera.getMovementBasis(pivot, up);
-        this.walkRig.applyMovement(this.input, movementBasis, dt);
       }
+
+      if (this.input.isDown('Escape')) {
+        this.onExitRequest(this.activeBody);
+        return;
+      }
+
+      this.walkRig.syncPlayerFacing(this.tpsCamera, focusBase, up);
+      const movementBasis = this.tpsCamera.getMovementBasis(pivot, up);
+      this.walkRig.applyMovement(this.input, movementBasis, dt);
 
       this.tpsCamera.update(pivot, up);
       this.walkRig.updateFillLight();
