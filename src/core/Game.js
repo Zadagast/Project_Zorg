@@ -9,7 +9,7 @@ import { WalkMode } from '../modes/WalkMode.js';
 import { Player } from '../player/Player.js';
 import { ThirdPersonCamera } from '../player/ThirdPersonCamera.js';
 import { updateTweens } from '../utils/transitions.js';
-import { MODES } from '../config.js';
+import { MODES, APP_VERSION } from '../config.js';
 
 export class Game {
   constructor() {
@@ -18,7 +18,9 @@ export class Game {
       bodyLabel: document.getElementById('body-label'),
       loading: document.getElementById('loading'),
       crosshair: document.getElementById('crosshair'),
+      version: document.getElementById('version'),
     };
+    if (this.ui.version) this.ui.version.textContent = `v${APP_VERSION}`;
 
     const { scene, camera, renderer } = createSceneSetup();
     this.scene = scene;

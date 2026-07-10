@@ -1,3 +1,5 @@
+export const APP_VERSION = '0.2.0';
+
 export const VOXEL_SIZE = 1;
 
 /** Even gap between each body's sphere edge — catalog lineup like the reference art. */

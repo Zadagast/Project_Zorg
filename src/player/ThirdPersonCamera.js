@@ -12,12 +12,13 @@ const _flat = new THREE.Vector3();
 const _toCamera = new THREE.Vector3();
 const _east = new THREE.Vector3();
 const _north = new THREE.Vector3();
+const _view = new THREE.Vector3();
+const _mat = new THREE.Matrix4();
 
 /**
- * Standard third-person shooter camera:
- * - Orbits a chest-height pivot on the player (not the screen crosshair).
- * - Shoulder offset + look-ahead aim point for over-the-shoulder framing.
- * - Yaw/pitch mouse orbit; WASD uses camera yaw on the ground plane.
+ * Third-person shooter camera on a spherical surface.
+ * Yaw/pitch orbit around a chest pivot; camera.up = surface normal so the horizon
+ * stays level with the player's view (no world-Y roll from lookAt).
  */
 export class ThirdPersonCamera {
   constructor(camera) {
@@ -25,15 +26,16 @@ export class ThirdPersonCamera {
     this.distance = 4.5;
     this.minDistance = 2.5;
     this.maxDistance = 40;
-    this.pitch = 0.48;
-    this.minPitch = 0.22;
-    this.maxPitch = 0.82;
+    /** Radians above the local horizon (0 = eye-level behind player). */
+    this.pitch = 0.32;
+    this.minPitch = 0.08;
+    this.maxPitch = 1.15;
     this.yaw = 0;
-    this.shoulderOffset = 0.85;
-    this.aimLead = 20;
-    this.aimHeight = 0.35;
+    this.shoulderOffset = 0.75;
+    this.aimLead = 16;
+    this.aimHeight = 0.25;
     this.exitDistance = 20;
-    this.mouseSensitivity = 0.0045;
+    this.mouseSensitivity = 0.0032;
     this.wheelSensitivity = 0.015;
     this.walkFov = 52;
     this._savedFov = null;
@@ -44,7 +46,7 @@ export class ThirdPersonCamera {
     this.minDistance = Math.max(2.2, radius * 0.32);
     this.exitDistance = radius * EXIT_ZOOM_FACTOR;
     this.maxDistance = this.exitDistance * 1.05;
-    this.pitch = 0.48;
+    this.pitch = 0.32;
   }
 
   enterWalkMode() {
@@ -109,6 +111,30 @@ export class ThirdPersonCamera {
       .addScaledVector(up, this.aimHeight);
   }
 
+  /** Aim with a fixed horizon (surface up) — standard TPS, no roll. */
+  _orientCamera(position, target, up) {
+    this.camera.position.copy(position);
+    _view.copy(target).sub(position);
+
+    if (_view.lengthSq() < 1e-8) {
+      this._writeForwardFromYaw(up, _view);
+    } else {
+      _view.normalize();
+    }
+
+    _right.crossVectors(_view, up);
+    if (_right.lengthSq() < 1e-8) {
+      _right.copy(tangentBasis(up).east);
+    } else {
+      _right.normalize();
+    }
+
+    _offset.copy(_view).negate();
+    _mat.makeBasis(_right, up, _offset);
+    this.camera.quaternion.setFromRotationMatrix(_mat);
+    this.camera.up.copy(up);
+  }
+
   setApproachOrientation(pivot, up, cameraPosition, bodyCenter) {
     _pivot.copy(pivot);
     const basis = tangentBasis(up);
@@ -128,14 +154,17 @@ export class ThirdPersonCamera {
       _flat.addScaledVector(up, -_flat.dot(up));
     }
 
-    if (_flat.lengthSq() > 1e-4) {
+    const horizLen = _flat.length();
+    const vert = _toCamera.dot(up);
+
+    if (horizLen > 1e-4) {
       _flat.normalize();
       this.yaw = Math.atan2(_flat.dot(_east), _flat.dot(_north));
+      this.pitch = THREE.MathUtils.clamp(Math.atan2(vert, horizLen), this.minPitch, this.maxPitch);
     } else {
       this.yaw = 0;
+      this.pitch = 0.32;
     }
-
-    this.pitch = 0.48;
   }
 
   applyCameraPose(pivot, up) {
@@ -145,15 +174,14 @@ export class ThirdPersonCamera {
 
     if (!Number.isFinite(_desired.x) || !Number.isFinite(_aim.x)) return;
 
-    this.camera.position.copy(_desired);
-    this.camera.lookAt(_aim);
+    this._orientCamera(_desired, _aim, up);
   }
 
   update(pivot, up) {
     this.applyCameraPose(pivot, up);
   }
 
-  /** Camera-relative WASD: forward/right on the surface tangent plane (yaw only, no pitch). */
+  /** Camera-relative WASD on the local horizon (yaw only). */
   getMovementBasis(_pivot, up) {
     this._writeForwardFromYaw(up, _forward);
     _right.crossVectors(_forward, up).normalize();

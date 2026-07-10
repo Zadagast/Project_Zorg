@@ -140,14 +140,14 @@ export class WalkRig {
     this.spinQuaternion.normalize();
     this.body.group.quaternion.copy(this.spinQuaternion);
 
-    this.player.setRigOrientation(Math.atan2(_moveScratch.x, _moveScratch.z));
     this.updateFillLight();
     return true;
   }
 
-  syncPlayerFacing(tpsCamera, focusBase, up) {
+  /** Rotate the player mesh to match camera yaw on the local horizon. */
+  syncPlayerFacing(tpsCamera, _focusBase, up) {
     if (!this.player) return;
-    const { forward } = tpsCamera.getMovementBasis(focusBase, up);
+    const { forward } = tpsCamera.getMovementBasis(_focusBase, up);
     _invRigQuat.copy(this.rig.quaternion).invert();
     _localForward.copy(forward).applyQuaternion(_invRigQuat);
     _localForward.y = 0;

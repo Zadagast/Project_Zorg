@@ -151,11 +151,11 @@ export class WalkMode {
         return;
       }
 
+      // Player body tracks camera yaw every frame (shooter-style).
+      this.walkRig.syncPlayerFacing(this.tpsCamera, focusBase, up);
+
       const movementBasis = this.tpsCamera.getMovementBasis(cameraPivot, up);
-      const moved = this.walkRig.applyMovement(this.input, movementBasis, dt);
-      if (!moved) {
-        this.walkRig.syncPlayerFacing(this.tpsCamera, focusBase, up);
-      }
+      this.walkRig.applyMovement(this.input, movementBasis, dt);
 
       this.tpsCamera.update(cameraPivot, up);
       this.walkRig.updateFillLight();

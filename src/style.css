@@ -74,6 +74,17 @@ body.pointer-locked canvas {
   margin-bottom: 4px;
 }
 
+#version {
+  position: fixed;
+  right: 16px;
+  bottom: 12px;
+  font-size: 0.75rem;
+  opacity: 0.55;
+  color: #e8e8f0;
+  pointer-events: none;
+  z-index: 10;
+}
+
 #crosshair {
   position: fixed;
   top: 50%;
