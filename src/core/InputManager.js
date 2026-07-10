@@ -5,14 +5,13 @@ export class InputManager {
     this.mouseDelta = { x: 0, y: 0 };
     this.wheelDelta = 0;
     this.pointerLocked = false;
-    this._mouseDown = false;
-    this._mouseButton = -1;
+    this._mouseButtons = 0;
     this._dragDistance = 0;
 
     this._onKeyDown = (e) => this.keys.add(e.code);
     this._onKeyUp = (e) => this.keys.delete(e.code);
     this._onMouseMove = (e) => {
-      if (this.pointerLocked || this._mouseDown) {
+      if (this.pointerLocked || this._mouseButtons !== 0) {
         this.mouseDelta.x += e.movementX;
         this.mouseDelta.y += e.movementY;
         this._dragDistance += Math.abs(e.movementX) + Math.abs(e.movementY);
@@ -22,16 +21,15 @@ export class InputManager {
       this.wheelDelta += e.deltaY;
     };
     this._onMouseDown = (e) => {
-      this._mouseDown = true;
-      this._mouseButton = e.button;
+      this._mouseButtons |= 1 << e.button;
       this._dragDistance = 0;
     };
-    this._onMouseUp = () => {
-      this._mouseDown = false;
-      this._mouseButton = -1;
+    this._onMouseUp = (e) => {
+      this._mouseButtons &= ~(1 << e.button);
     };
     this._onPointerLockChange = () => {
       this.pointerLocked = document.pointerLockElement === this.domElement;
+      document.body.classList.toggle('pointer-locked', this.pointerLocked);
     };
 
     window.addEventListener('keydown', this._onKeyDown);
@@ -49,7 +47,11 @@ export class InputManager {
   }
 
   isMouseDown(button = 0) {
-    return this._mouseDown && this._mouseButton === button;
+    return (this._mouseButtons & (1 << button)) !== 0;
+  }
+
+  isLooking() {
+    return this.pointerLocked || this._mouseButtons !== 0;
   }
 
   wasDrag() {
@@ -61,7 +63,7 @@ export class InputManager {
   }
 
   consumeMouseDelta() {
-    const delta = { ...this.mouseDelta };
+    const delta = { x: this.mouseDelta.x, y: this.mouseDelta.y };
     this.mouseDelta.x = 0;
     this.mouseDelta.y = 0;
     return delta;
@@ -114,5 +116,6 @@ export class InputManager {
     window.removeEventListener('mouseup', this._onMouseUp);
     document.removeEventListener('pointerlockchange', this._onPointerLockChange);
     document.removeEventListener('pointerlockerror', this._onPointerLockChange);
+    document.body.classList.remove('pointer-locked');
   }
 }

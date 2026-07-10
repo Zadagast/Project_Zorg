@@ -30,7 +30,6 @@ export class WalkMode {
     this.activeBody = null;
     this.enabled = false;
     this._enterTime = 0;
-    this._lookActive = false;
 
     input.domElement.addEventListener('mousedown', this._onCanvasMouseDown);
     input.domElement.addEventListener('contextmenu', this._onContextMenu);
@@ -42,11 +41,11 @@ export class WalkMode {
 
   _onCanvasMouseDown = (e) => {
     if (!this.enabled) return;
-    if (e.button === 0 || e.button === 2) {
-      e.preventDefault();
-      this._lookActive = true;
-      this.input.domElement.focus({ preventScroll: true });
-    }
+    if (e.button !== 0 && e.button !== 2) return;
+
+    e.preventDefault();
+    this.input.domElement.focus({ preventScroll: true });
+    void this.input.requestPointerLock();
   };
 
   _setCrosshairVisible(visible) {
@@ -60,10 +59,10 @@ export class WalkMode {
 
     this.solarSystem.setBodiesVisibleExcept(body, false);
     body.setHighlighted(false);
+    if (body.label) body.label.visible = false;
 
     this.walkRig.attach(body, this.player, landingPoint);
 
-    const focusBase = this.walkRig.getFocusBase(_focusBase);
     const cameraPivot = this.walkRig.getCameraPivot(_cameraPivot);
     const up = this.walkRig.getWorldUp(_up);
     const bodyCenter = body.getWorldCenter(_bodyCenter);
@@ -80,7 +79,6 @@ export class WalkMode {
   abortLanding() {
     this.enabled = false;
     this.activeBody = null;
-    this._lookActive = false;
     this._setCrosshairVisible(false);
     this.tpsCamera.exitWalkMode();
     if (this.player.root.parent) {
@@ -88,15 +86,17 @@ export class WalkMode {
     }
     this.walkRig.detach();
     this.solarSystem?.resetVisibility();
+    this.input.exitPointerLock();
     this.input.consumeWheelDelta();
   }
 
   finishLanding() {
     this.enabled = true;
     this._enterTime = performance.now();
-    this._lookActive = false;
     this._setCrosshairVisible(true);
     this.input.consumeWheelDelta();
+    this.input.consumeMouseDelta();
+
     const focusBase = this.walkRig.getFocusBase(_focusBase);
     const cameraPivot = this.walkRig.getCameraPivot(_cameraPivot);
     const up = this.walkRig.getWorldUp(_up);
@@ -106,7 +106,6 @@ export class WalkMode {
 
   exit() {
     this.enabled = false;
-    this._lookActive = false;
     this._setCrosshairVisible(false);
     this.tpsCamera.exitWalkMode();
     if (this.player.root.parent) {
@@ -127,13 +126,8 @@ export class WalkMode {
       const cameraPivot = this.walkRig.getCameraPivot(_cameraPivot);
       const up = this.walkRig.getWorldUp(_up);
 
-      if (!this.input.isMouseDown(0) && !this.input.isMouseDown(2)) {
-        this._lookActive = false;
-      }
-
       const mouse = this.input.consumeMouseDelta();
-      const canLook = this._lookActive || this.input.isMouseDown(0) || this.input.isMouseDown(2);
-      if (canLook && (mouse.x !== 0 || mouse.y !== 0)) {
+      if (this.input.isLooking() && (mouse.x !== 0 || mouse.y !== 0)) {
         this.tpsCamera.applyMouseDelta(mouse);
       }
 
@@ -157,7 +151,7 @@ export class WalkMode {
         return;
       }
 
-      const movementBasis = this.tpsCamera.getMovementBasis(focusBase, up);
+      const movementBasis = this.tpsCamera.getMovementBasis(cameraPivot, up);
       const moved = this.walkRig.applyMovement(this.input, movementBasis, dt);
       if (!moved) {
         this.walkRig.syncPlayerFacing(this.tpsCamera, focusBase, up);

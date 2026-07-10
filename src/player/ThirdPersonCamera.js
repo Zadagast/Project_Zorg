@@ -3,6 +3,7 @@ import { tangentBasis } from '../utils/SphericalMath.js';
 import { EXIT_ZOOM_FACTOR } from '../config.js';
 
 const _pivot = new THREE.Vector3();
+const _aim = new THREE.Vector3();
 const _desired = new THREE.Vector3();
 const _offset = new THREE.Vector3();
 const _forward = new THREE.Vector3();
@@ -13,8 +14,10 @@ const _east = new THREE.Vector3();
 const _north = new THREE.Vector3();
 
 /**
- * Standard third-person orbit: camera circles behind the player pivot (chest height).
- * Mouse yaw/pitch rotate around the character, not the screen-center crosshair.
+ * Standard third-person shooter camera:
+ * - Orbits a chest-height pivot on the player (not the screen crosshair).
+ * - Shoulder offset + look-ahead aim point for over-the-shoulder framing.
+ * - Yaw/pitch mouse orbit; WASD uses camera yaw on the ground plane.
  */
 export class ThirdPersonCamera {
   constructor(camera) {
@@ -22,23 +25,26 @@ export class ThirdPersonCamera {
     this.distance = 4.5;
     this.minDistance = 2.5;
     this.maxDistance = 40;
-    this.pitch = 0.38;
-    this.minPitch = 0.12;
-    this.maxPitch = 0.72;
+    this.pitch = 0.48;
+    this.minPitch = 0.22;
+    this.maxPitch = 0.82;
     this.yaw = 0;
+    this.shoulderOffset = 0.85;
+    this.aimLead = 20;
+    this.aimHeight = 0.35;
     this.exitDistance = 20;
     this.mouseSensitivity = 0.0045;
     this.wheelSensitivity = 0.015;
-    this.walkFov = 50;
+    this.walkFov = 52;
     this._savedFov = null;
   }
 
   setDistanceForBody(radius) {
-    this.distance = Math.max(3.5, radius * 0.55);
-    this.minDistance = Math.max(2.5, radius * 0.35);
+    this.distance = Math.max(3.2, radius * 0.52);
+    this.minDistance = Math.max(2.2, radius * 0.32);
     this.exitDistance = radius * EXIT_ZOOM_FACTOR;
     this.maxDistance = this.exitDistance * 1.05;
-    this.pitch = 0.38;
+    this.pitch = 0.48;
   }
 
   enterWalkMode() {
@@ -90,8 +96,17 @@ export class ThirdPersonCamera {
 
     _offset.copy(_forward).multiplyScalar(-this.distance * cosPitch);
     _offset.addScaledVector(up, this.distance * sinPitch);
+    _offset.addScaledVector(_right, this.shoulderOffset);
 
     return target.copy(pivot).add(_offset);
+  }
+
+  _writeAimPoint(pivot, up, target) {
+    this._writeForwardFromYaw(up, _forward);
+    return target
+      .copy(pivot)
+      .addScaledVector(_forward, this.aimLead)
+      .addScaledVector(up, this.aimHeight);
   }
 
   setApproachOrientation(pivot, up, cameraPosition, bodyCenter) {
@@ -120,23 +135,25 @@ export class ThirdPersonCamera {
       this.yaw = 0;
     }
 
-    this.pitch = 0.38;
+    this.pitch = 0.48;
   }
 
   applyCameraPose(pivot, up) {
     _pivot.copy(pivot);
     this._writeOrbitPosition(_pivot, up, _desired);
+    this._writeAimPoint(_pivot, up, _aim);
 
-    if (!Number.isFinite(_desired.x) || !Number.isFinite(_pivot.x)) return;
+    if (!Number.isFinite(_desired.x) || !Number.isFinite(_aim.x)) return;
 
     this.camera.position.copy(_desired);
-    this.camera.lookAt(_pivot);
+    this.camera.lookAt(_aim);
   }
 
   update(pivot, up) {
     this.applyCameraPose(pivot, up);
   }
 
+  /** Camera-relative WASD: forward/right on the surface tangent plane (yaw only, no pitch). */
   getMovementBasis(_pivot, up) {
     this._writeForwardFromYaw(up, _forward);
     _right.crossVectors(_forward, up).normalize();
