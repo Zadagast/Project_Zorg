@@ -1,17 +1,19 @@
 import * as THREE from 'three';
-import { SOLAR_SYSTEM_CENTER_X } from '../config.js';
+import { SOLAR_SYSTEM_CENTER_X, SOLAR_SYSTEM_SPAN } from '../config.js';
 
 export function createSceneSetup() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x000008);
 
+  const far = Math.max(25000, SOLAR_SYSTEM_SPAN * 2.5);
   const camera = new THREE.PerspectiveCamera(
     50,
     window.innerWidth / window.innerHeight,
     0.1,
-    15000,
+    far,
   );
-  camera.position.set(SOLAR_SYSTEM_CENTER_X, 60, 580);
+  const viewZ = SOLAR_SYSTEM_SPAN * 0.38;
+  camera.position.set(SOLAR_SYSTEM_CENTER_X, SOLAR_SYSTEM_SPAN * 0.06, viewZ);
   camera.lookAt(SOLAR_SYSTEM_CENTER_X, 0, 0);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -38,7 +40,7 @@ export function createSceneSetup() {
 }
 
 export function createSunLight() {
-  const sunLight = new THREE.PointLight(0xfff5e6, 32000, 15000, 1.5);
+  const sunLight = new THREE.PointLight(0xfff5e6, 55000, Math.max(25000, SOLAR_SYSTEM_SPAN * 2), 1.5);
   sunLight.position.set(0, 0, 0);
   return sunLight;
 }

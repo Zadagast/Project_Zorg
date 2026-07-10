@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { animateDual, stopAllTweens } from '../utils/transitions.js';
 import { getWorldCenter, getCameraDistanceToBody } from '../utils/SphericalMath.js';
-import { LAND_ZOOM_FACTOR, SOLAR_SYSTEM_CENTER_X } from '../config.js';
+import { LAND_ZOOM_FACTOR, SOLAR_SYSTEM_CENTER_X, SOLAR_SYSTEM_SPAN } from '../config.js';
 
 export class PlanetariumMode {
   constructor({ camera, renderer, solarSystem, onSelectBody, onLandTrigger }) {
@@ -15,7 +15,7 @@ export class PlanetariumMode {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.06;
     this.controls.minDistance = 5;
-    this.controls.maxDistance = 1800;
+    this.controls.maxDistance = SOLAR_SYSTEM_SPAN * 1.15;
     this.controls.mouseButtons = {
       LEFT: THREE.MOUSE.ROTATE,
       MIDDLE: THREE.MOUSE.DOLLY,

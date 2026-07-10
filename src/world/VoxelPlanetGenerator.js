@@ -69,21 +69,26 @@ function pickColor(body, x, y, z, radius, step) {
     }
 
     case 'Jupiter': {
-      const band = Math.sin(y * freq * 1.35 + sampleNoise(x, y, z, freq * 0.8, 53) * 2.2);
-      const spot = dirDot(x, y, z, 0.72, -0.18, 0.42);
-      if (spot > 0.9 && y > -radius * 0.15 && y < radius * 0.35) return 0xd03028;
-      if (band > 0.45) return 0xf8ecd8;
-      if (band > 0.05) return 0xe0b878;
-      if (band > -0.35) return 0xc08848;
-      return 0x986838;
+      const turbulence = sampleNoise(x, y, z, freq * 0.85, 53);
+      const band = Math.sin(y * freq * 1.75 + turbulence * 3.2);
+      const band2 = Math.sin(y * freq * 2.6 + x * freq * 0.35 + turbulence);
+      const spot = dirDot(x, y, z, 0.68, -0.22, 0.45);
+      if (spot > 0.87 && y > -radius * 0.1 && y < radius * 0.34) return 0xc43028;
+      if (band > 0.52) return 0xfff2dc;
+      if (band > 0.18) return band2 > 0 ? 0xe8b878 : 0xcc8848;
+      if (band > -0.15) return 0xa86830;
+      if (band > -0.45) return 0x804820;
+      return 0x5c3418;
     }
 
     case 'Saturn': {
-      const band = Math.sin(y * freq * 1.2 + n * 1.8);
-      if (band > 0.4) return 0xf8ecd8;
-      if (band > 0) return 0xe8c890;
-      if (band > -0.35) return 0xd0a868;
-      return 0xa88048;
+      // Pale gold, soft low-contrast bands — visually distinct from stormy Jupiter.
+      const soft = Math.sin(y * freq * 0.75 + n * 0.45);
+      const sheen = sampleNoise(x, y, z, freq * 0.45, 71) * 0.12;
+      const v = soft + sheen;
+      if (v > 0.22) return 0xf8ecd8;
+      if (v > -0.08) return 0xe8d4a8;
+      return 0xc8a870;
     }
 
     case 'Uranus':
@@ -104,11 +109,12 @@ function pickColor(body, x, y, z, radius, step) {
   }
 }
 
-function pickRingColor(x, z, distXZ, step) {
-  const band = Math.sin(distXZ * (0.55 / step) + noise3D(x * 0.07, z * 0.07, 0) * 2.4);
-  if (band > 0.35) return 0xf0e4c8;
-  if (band > -0.2) return 0xd8c098;
-  return 0xb89868;
+function pickRingColor(y, z, distYZ, step) {
+  const band = Math.sin(distYZ * (0.75 / step) + noise3D(y * 0.05, z * 0.05, 0) * 2.2);
+  if (band > 0.45) return 0xf8f0d8;
+  if (band > 0.08) return 0xe8dcb8;
+  if (band > -0.28) return 0xd0c098;
+  return 0xb0a078;
 }
 
 function fillSolidSphere(body, voxels, step) {
@@ -133,19 +139,20 @@ function fillSolidSphere(body, voxels, step) {
 
 function fillRingVoxels(body, voxels, step) {
   const r = body.radius;
-  const innerRing = r * 1.35;
-  const outerRing = r * 2.15;
+  const innerRing = r * 1.38;
+  const outerRing = r * 2.25;
   const max = outerRing + step;
-  const yLevels = [-step * 0.45, 0, step * 0.45];
+  // YZ plane — rings face the camera / orbit line so they don't clip neighbors on X.
+  const xLevels = [-step * 0.55, -step * 0.18, step * 0.18, step * 0.55];
 
-  for (let x = -max; x <= max; x += step) {
+  for (let y = -max; y <= max; y += step) {
     for (let z = -max; z <= max; z += step) {
-      const distXZ = Math.sqrt(x * x + z * z);
-      if (distXZ < innerRing || distXZ > outerRing) continue;
-      for (const y of yLevels) {
+      const distYZ = Math.sqrt(y * y + z * z);
+      if (distYZ < innerRing || distYZ > outerRing) continue;
+      for (const x of xLevels) {
         voxels.push({
           position: new THREE.Vector3(x, y, z),
-          color: pickRingColor(x, z, distXZ, step),
+          color: pickRingColor(y, z, distYZ, step),
         });
       }
     }

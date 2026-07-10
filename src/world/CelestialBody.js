@@ -18,7 +18,8 @@ export class CelestialBody {
     this.group.position.set(def.distance, 0, 0);
     this.group.userData.celestialBody = this;
 
-    const pickRadius = this.radius * (this.hasRings ? 2.2 : 1);
+    // Rings sit in YZ — use a modest pick radius, not full ring span along X.
+    const pickRadius = this.radius * (this.hasRings ? 1.65 : 1);
     this.pickSphere = new THREE.Mesh(
       new THREE.SphereGeometry(pickRadius, 16, 12),
       new THREE.MeshBasicMaterial({ visible: false }),
