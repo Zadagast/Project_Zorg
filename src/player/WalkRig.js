@@ -1,6 +1,10 @@
 import * as THREE from 'three';
+import { tangentBasis } from '../utils/SphericalMath.js';
 
 const _rigUp = new THREE.Vector3(0, 1, 0);
+const _pole = new THREE.Vector3(0, 1, 0);
+const _localUp = new THREE.Vector3();
+const _localPos = new THREE.Vector3();
 const _focusScratch = new THREE.Vector3();
 const _moveScratch = new THREE.Vector3();
 const _axisScratch = new THREE.Vector3();
@@ -8,6 +12,12 @@ const _deltaScratch = new THREE.Quaternion();
 const _invRigQuat = new THREE.Quaternion();
 const _localForward = new THREE.Vector3();
 const _localRight = new THREE.Vector3();
+const _worldForward = new THREE.Vector3();
+const _tangentEast = new THREE.Vector3();
+const _tangentNorth = new THREE.Vector3();
+
+/** Fixed walk speed in world units/sec — feels the same on every planet size. */
+const WALK_SPEED = 11;
 
 export class WalkRig {
   constructor(scene) {
@@ -20,9 +30,10 @@ export class WalkRig {
     this.savedBodyMatrix = new THREE.Matrix4();
     this.surfaceOffset = 0.5;
     this.playerHeight = 0;
-    this.moveSpeed = 12;
-    this.spinQuaternion = new THREE.Quaternion();
-    this.fillLight = new THREE.PointLight(0xc8d8ff, 0.9, 0, 1.5);
+    /** Rotates the player from the landing pole to their current spot on the sphere. */
+    this.surfaceRotation = new THREE.Quaternion();
+    this.playerFacing = 0;
+    this.fillLight = new THREE.PointLight(0xc8d8ff, 1.1, 0, 1.5);
     this.fillLight.visible = false;
     scene.add(this.fillLight);
   }
@@ -32,9 +43,9 @@ export class WalkRig {
 
     this.body = body;
     this.player = player;
-    this.moveSpeed = Math.max(8, body.radius * 0.42);
     this.playerHeight = body.radius + this.surfaceOffset;
-    this.spinQuaternion.identity();
+    this.surfaceRotation.identity();
+    this.playerFacing = 0;
 
     const center = body.getWorldCenter(new THREE.Vector3());
     const landingDir = landingPoint.clone().sub(center).normalize();
@@ -54,12 +65,10 @@ export class WalkRig {
     this.rig.add(player.root);
     const playerScale = THREE.MathUtils.clamp(5.5 / body.radius, 1, 1.6);
     player.root.scale.setScalar(playerScale);
-    player.root.position.set(0, this.playerHeight, 0);
-    player.setRigOrientation(0);
 
-    this.fillLight.position.copy(center).addScaledVector(landingDir, this.playerHeight + 2);
+    this._updatePlayerTransform();
     this.fillLight.visible = true;
-
+    this.updateFillLight();
     this.attached = true;
   }
 
@@ -84,23 +93,37 @@ export class WalkRig {
     this.player = null;
     this.fillLight.visible = false;
     this.attached = false;
-    this.spinQuaternion.identity();
+    this.surfaceRotation.identity();
+  }
+
+  getSurfaceLocalUp(target) {
+    return target.copy(_pole).applyQuaternion(this.surfaceRotation).normalize();
   }
 
   getWorldUp(target) {
-    return target.set(0, 1, 0).applyQuaternion(this.rig.quaternion);
+    this.getSurfaceLocalUp(_localUp);
+    return target.copy(_localUp).applyQuaternion(this.rig.quaternion).normalize();
   }
 
   getFocusBase(target) {
-    return this.rig.localToWorld(target.set(0, this.playerHeight, 0));
+    this.getSurfaceLocalUp(_localUp);
+    _localPos.copy(_localUp).multiplyScalar(this.playerHeight);
+    return this.rig.localToWorld(target.copy(_localPos));
   }
 
-  /** World-space chest height — TPS orbit pivot stays on the character, not the crosshair. */
   getCameraPivot(target) {
     const feet = this.getFocusBase(_focusScratch);
+    const up = this.getWorldUp(_localUp);
     const scale = this.player?.root.scale.x ?? 1;
-    const chestOffset = 1.05 * scale;
-    return target.copy(feet).addScaledVector(this.getWorldUp(_axisScratch), chestOffset);
+    return target.copy(feet).addScaledVector(up, 1.1 * scale);
+  }
+
+  _updatePlayerTransform() {
+    if (!this.player) return;
+    this.getSurfaceLocalUp(_localUp);
+    _localPos.copy(_localUp).multiplyScalar(this.playerHeight);
+    this.player.root.position.copy(_localPos);
+    this.player.setSurfacePose(_localUp, this.playerFacing);
   }
 
   updateFillLight() {
@@ -116,8 +139,10 @@ export class WalkRig {
 
     _localForward.copy(forward).applyQuaternion(_invRigQuat);
     _localRight.copy(right).applyQuaternion(_invRigQuat);
-    _localForward.y = 0;
-    _localRight.y = 0;
+    this.getSurfaceLocalUp(_localUp);
+
+    _localForward.addScaledVector(_localUp, -_localForward.dot(_localUp));
+    _localRight.addScaledVector(_localUp, -_localRight.dot(_localUp));
     if (_localForward.lengthSq() > 1e-8) _localForward.normalize();
     if (_localRight.lengthSq() > 1e-8) _localRight.normalize();
 
@@ -130,45 +155,50 @@ export class WalkRig {
     if (_moveScratch.lengthSq() === 0) return false;
 
     _moveScratch.normalize();
-    const angle = (this.moveSpeed * dt) / this.body.radius;
-    _axisScratch.crossVectors(_moveScratch, _rigUp);
-    if (_axisScratch.lengthSq() < 1e-8) return;
+    const angle = (WALK_SPEED * dt) / this.body.radius;
+
+    _axisScratch.crossVectors(_localUp, _moveScratch);
+    if (_axisScratch.lengthSq() < 1e-8) return false;
     _axisScratch.normalize();
 
     _deltaScratch.setFromAxisAngle(_axisScratch, angle);
-    this.spinQuaternion.premultiply(_deltaScratch);
-    this.spinQuaternion.normalize();
-    this.body.group.quaternion.copy(this.spinQuaternion);
+    this.surfaceRotation.premultiply(_deltaScratch);
+    this.surfaceRotation.normalize();
 
+    this._updatePlayerTransform();
     this.updateFillLight();
     return true;
   }
 
-  /** Rotate the player mesh to match camera yaw on the local horizon. */
-  syncPlayerFacing(tpsCamera, _focusBase, up) {
+  syncPlayerFacing(tpsCamera, focusBase, up) {
     if (!this.player) return;
-    const { forward } = tpsCamera.getMovementBasis(_focusBase, up);
+    const { forward } = tpsCamera.getMovementBasis(focusBase, up);
+
     _invRigQuat.copy(this.rig.quaternion).invert();
-    _localForward.copy(forward).applyQuaternion(_invRigQuat);
-    _localForward.y = 0;
+    _worldForward.copy(forward);
+    _localForward.copy(_worldForward).applyQuaternion(_invRigQuat);
+
+    this.getSurfaceLocalUp(_localUp);
+    _localForward.addScaledVector(_localUp, -_localForward.dot(_localUp));
     if (_localForward.lengthSq() < 1e-8) return;
     _localForward.normalize();
-    this.player.setRigOrientation(Math.atan2(_localForward.x, _localForward.z));
+
+    const basis = tangentBasis(_localUp);
+    _tangentEast.copy(basis.east);
+    _tangentNorth.copy(basis.north);
+    this.playerFacing = Math.atan2(_localForward.dot(_tangentEast), _localForward.dot(_tangentNorth));
+    this._updatePlayerTransform();
   }
 
   getExitCameraPose() {
     const center = this.body.getWorldCenter(new THREE.Vector3());
     const up = this.getWorldUp(new THREE.Vector3());
-    const east = tangentEast(up);
+    let reference = new THREE.Vector3(0, 0, 1);
+    if (Math.abs(up.dot(reference)) > 0.9) reference.set(1, 0, 0);
+    const east = new THREE.Vector3().crossVectors(up, reference).normalize();
     const camPos = this.getFocusBase(_focusScratch)
       .addScaledVector(up, this.body.radius * 0.35)
       .addScaledVector(east, this.body.radius * 3.5);
     return { camPos, lookAt: center };
   }
-}
-
-function tangentEast(up) {
-  let reference = new THREE.Vector3(0, 0, 1);
-  if (Math.abs(up.dot(reference)) > 0.9) reference.set(1, 0, 0);
-  return new THREE.Vector3().crossVectors(up, reference).normalize();
 }

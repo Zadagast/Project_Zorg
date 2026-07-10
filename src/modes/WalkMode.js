@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WalkRig } from '../player/WalkRig.js';
 
-const WHEEL_GRACE_MS = 800;
+const WHEEL_GRACE_MS = 600;
 const _focusBase = new THREE.Vector3();
 const _cameraPivot = new THREE.Vector3();
 const _up = new THREE.Vector3();
@@ -42,7 +42,6 @@ export class WalkMode {
   _onCanvasMouseDown = (e) => {
     if (!this.enabled) return;
     if (e.button !== 0 && e.button !== 2) return;
-
     e.preventDefault();
     this.input.domElement.focus({ preventScroll: true });
     void this.input.requestPointerLock();
@@ -102,6 +101,8 @@ export class WalkMode {
     const up = this.walkRig.getWorldUp(_up);
     this.tpsCamera.applyCameraPose(cameraPivot, up);
     this.walkRig.syncPlayerFacing(this.tpsCamera, focusBase, up);
+
+    void this.input.requestPointerLock();
   }
 
   exit() {
@@ -151,13 +152,14 @@ export class WalkMode {
         return;
       }
 
-      // Player body tracks camera yaw every frame (shooter-style).
       this.walkRig.syncPlayerFacing(this.tpsCamera, focusBase, up);
 
       const movementBasis = this.tpsCamera.getMovementBasis(cameraPivot, up);
       this.walkRig.applyMovement(this.input, movementBasis, dt);
 
-      this.tpsCamera.update(cameraPivot, up);
+      const pivot = this.walkRig.getCameraPivot(_cameraPivot);
+      const surfaceUp = this.walkRig.getWorldUp(_up);
+      this.tpsCamera.update(pivot, surfaceUp);
       this.walkRig.updateFillLight();
     } catch (err) {
       console.error('Walk mode update failed:', err);

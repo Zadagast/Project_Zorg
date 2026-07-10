@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { quaternionFromYUp, tangentBasis } from '../utils/SphericalMath.js';
+import { quaternionFromYUp } from '../utils/SphericalMath.js';
 
 const PARTS = [
   { pos: [0, 1.2, 0], size: [0.5, 0.6, 0.35], color: 0xffdbac },
@@ -22,12 +22,21 @@ export class Player {
       const mesh = new THREE.Mesh(geo, mat);
       mesh.scale.set(part.size[0], part.size[1], part.size[2]);
       mesh.position.set(part.pos[0], part.pos[1], part.pos[2]);
+      mesh.castShadow = false;
       this.root.add(mesh);
     }
 
     this.worldPosition = new THREE.Vector3();
     this.up = new THREE.Vector3(0, 1, 0);
     this.yaw = 0;
+  }
+
+  /** Stand on a surface normal (rig-local) and face yaw around that normal. */
+  setSurfacePose(localUp, yaw) {
+    this.yaw = yaw;
+    this.up.copy(localUp);
+    this.root.quaternion.copy(quaternionFromYUp(localUp));
+    this.root.rotateY(yaw);
   }
 
   setWorldPosition(position, up) {

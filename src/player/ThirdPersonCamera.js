@@ -14,36 +14,39 @@ const _north = new THREE.Vector3();
 const _mat = new THREE.Matrix4();
 const _qPitch = new THREE.Quaternion();
 
+/** Fixed TPS camera distance — character-scale, not planet-scale. */
+const TPS_DISTANCE = 5.2;
+const TPS_MIN_DISTANCE = 3.2;
+const TPS_SHOULDER = 0.55;
+
 /**
- * True pivot-orbit TPS camera.
- * Yaw/pitch rotate around the player chest; view direction and position both
- * derive from the same angles so rotation never pivots on the crosshair.
+ * Third-person shooter camera — orbits a moving chest pivot on the surface.
+ * Yaw/pitch share one view direction; horizon locked to local surface up.
  */
 export class ThirdPersonCamera {
   constructor(camera) {
     this.camera = camera;
-    this.distance = 4.5;
-    this.minDistance = 2.5;
+    this.distance = TPS_DISTANCE;
+    this.minDistance = TPS_MIN_DISTANCE;
     this.maxDistance = 40;
-    /** View elevation above local horizon (rad). Negative = look slightly down. */
-    this.pitch = -0.18;
-    this.minPitch = -0.55;
-    this.maxPitch = 0.65;
+    this.pitch = -0.22;
+    this.minPitch = -0.45;
+    this.maxPitch = 0.55;
     this.yaw = 0;
-    this.shoulderOffset = 0.7;
+    this.shoulderOffset = TPS_SHOULDER;
     this.exitDistance = 20;
-    this.mouseSensitivity = 0.0032;
-    this.wheelSensitivity = 0.015;
-    this.walkFov = 52;
+    this.mouseSensitivity = 0.0022;
+    this.wheelSensitivity = 0.012;
+    this.walkFov = 60;
     this._savedFov = null;
   }
 
   setDistanceForBody(radius) {
-    this.distance = Math.max(3.2, radius * 0.52);
-    this.minDistance = Math.max(2.2, radius * 0.32);
-    this.exitDistance = radius * EXIT_ZOOM_FACTOR;
+    this.distance = TPS_DISTANCE;
+    this.minDistance = TPS_MIN_DISTANCE;
+    this.exitDistance = Math.max(radius * EXIT_ZOOM_FACTOR, 22);
     this.maxDistance = this.exitDistance * 1.05;
-    this.pitch = -0.18;
+    this.pitch = -0.22;
   }
 
   enterWalkMode() {
@@ -53,7 +56,7 @@ export class ThirdPersonCamera {
   }
 
   exitWalkMode() {
-    this.camera.fov = this._savedFov ?? 60;
+    this.camera.fov = this._savedFov ?? 50;
     this._savedFov = null;
     this.camera.updateProjectionMatrix();
   }
@@ -79,7 +82,6 @@ export class ThirdPersonCamera {
     return this.distance;
   }
 
-  /** Horizontal forward on the surface tangent plane (movement + yaw reference). */
   _writeFlatForward(up, target) {
     const basis = tangentBasis(up);
     _east.copy(basis.east);
@@ -87,7 +89,6 @@ export class ThirdPersonCamera {
     return target.copy(_north).multiplyScalar(Math.cos(this.yaw)).addScaledVector(_east, Math.sin(this.yaw));
   }
 
-  /** Full view direction after pitch — crosshair points here. */
   _writeViewDirection(up, target) {
     this._writeFlatForward(up, _forward);
     _right.crossVectors(_forward, up).normalize();
@@ -106,7 +107,6 @@ export class ThirdPersonCamera {
       .addScaledVector(_view, -this.distance);
   }
 
-  /** Orient camera to look along viewDir with a level horizon (surface up). */
   _orientAlongView(position, viewDir, up) {
     this.camera.position.copy(position);
 
@@ -141,7 +141,7 @@ export class ThirdPersonCamera {
     }
     if (_view.lengthSq() < 1e-4) {
       this.yaw = 0;
-      this.pitch = -0.18;
+      this.pitch = -0.22;
       return;
     }
     _view.normalize();
@@ -153,7 +153,11 @@ export class ThirdPersonCamera {
     if (horizLen > 1e-4) {
       _flat.normalize();
       this.yaw = Math.atan2(_flat.dot(_east), _flat.dot(_north));
-      this.pitch = THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(_view.dot(up), -1, 1)), this.minPitch, this.maxPitch);
+      this.pitch = THREE.MathUtils.clamp(
+        Math.asin(THREE.MathUtils.clamp(_view.dot(up), -1, 1)),
+        this.minPitch,
+        this.maxPitch,
+      );
     } else {
       this.yaw = 0;
       this.pitch = _view.dot(up) > 0 ? this.maxPitch : this.minPitch;
@@ -174,7 +178,6 @@ export class ThirdPersonCamera {
     this.applyCameraPose(pivot, up);
   }
 
-  /** WASD uses flat camera yaw on the horizon, not pitched view. */
   getMovementBasis(_pivot, up) {
     this._writeFlatForward(up, _forward);
     _right.crossVectors(_forward, up).normalize();
