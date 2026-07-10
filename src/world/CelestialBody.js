@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { generateVoxels } from './VoxelPlanetGenerator.js';
-import { VOXEL_SIZE } from '../config.js';
 
 const _dummy = new THREE.Object3D();
 const _scratchColor = new THREE.Color();
@@ -30,15 +29,15 @@ export class CelestialBody {
   }
 
   _buildMesh() {
-    const voxels = generateVoxels({
+    const { voxels, step } = generateVoxels({
       name: this.name,
       radius: this.radius,
       color: this.color,
-      isSun: this.isSun,
+      isSun: !!this.isSun,
       hasRings: this.hasRings,
     });
 
-    const geometry = new THREE.BoxGeometry(VOXEL_SIZE, VOXEL_SIZE, VOXEL_SIZE);
+    const geometry = new THREE.BoxGeometry(step, step, step);
     // InstancedMesh multiplies geometry color × instance color; default geometry has no
     // color attribute which zeroes vColor and renders black voxels.
     const baseColors = new Float32Array(geometry.attributes.position.count * 3);
