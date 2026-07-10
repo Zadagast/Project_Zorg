@@ -1,40 +1,25 @@
 export const VOXEL_SIZE = 1;
 
-/** Clear space between each planet's sphere edge and the next. */
-const ORBIT_GAP = 220;
+/** Even gap between each body's sphere edge — catalog lineup like the reference art. */
+const ORBIT_GAP = 52;
 
 /** Saturn ring outer radius (YZ plane — does not extend along the orbit axis). */
 export const RING_OUTER_FACTOR = 2.25;
 
-/** Earth sits this many units from the Sun; other orbits scale by real AU. */
-const AU_SCALE = 420;
-
 const BODY_DEFS = [
-  { name: 'Sun', radius: 55, color: 0xffcc00, isSun: true },
-  { name: 'Mercury', radius: 16, color: 0xaaaaaa },
-  { name: 'Venus', radius: 28, color: 0xffcc99 },
-  { name: 'Earth', radius: 30, color: 0x228b22 },
-  { name: 'Mars', radius: 22, color: 0xff4500 },
-  { name: 'Jupiter', radius: 52, color: 0xdb7093 },
-  { name: 'Saturn', radius: 44, color: 0xf4a460, hasRings: true },
-  { name: 'Uranus', radius: 34, color: 0xadd8e6 },
-  { name: 'Neptune', radius: 34, color: 0x4682b4 },
-  { name: 'Pluto', radius: 10, color: 0x9a806a },
+  { name: 'Sun', radius: 45, color: 0xffcc00, isSun: true },
+  { name: 'Mercury', radius: 14, color: 0xaaaaaa },
+  { name: 'Venus', radius: 26, color: 0xffcc99 },
+  { name: 'Earth', radius: 28, color: 0x228b22 },
+  { name: 'Mars', radius: 20, color: 0xff4500 },
+  { name: 'Jupiter', radius: 42, color: 0xdb7093 },
+  { name: 'Saturn', radius: 38, color: 0xf4a460, hasRings: true },
+  { name: 'Uranus', radius: 30, color: 0xadd8e6 },
+  { name: 'Neptune', radius: 30, color: 0x4682b4 },
+  { name: 'Pluto', radius: 8, color: 0x9a806a },
 ];
 
-const AU = {
-  Mercury: 0.39,
-  Venus: 0.72,
-  Earth: 1.0,
-  Mars: 1.52,
-  Jupiter: 5.2,
-  Saturn: 9.5,
-  Uranus: 19.2,
-  Neptune: 30.1,
-  Pluto: 39.5,
-};
-
-function layoutSolarSystem(defs) {
+function layoutCatalog(defs) {
   const sun = defs.find((d) => d.isSun);
   const planets = defs.filter((d) => !d.isSun);
 
@@ -42,10 +27,7 @@ function layoutSolarSystem(defs) {
   let rightEdge = sun.radius;
 
   for (const def of planets) {
-    const auTarget = AU[def.name] * AU_SCALE;
-    const minCenter = rightEdge + ORBIT_GAP + def.radius;
-    const center = Math.max(auTarget, minCenter);
-
+    const center = rightEdge + ORBIT_GAP + def.radius;
     bodies.push({ ...def, distance: center });
     rightEdge = center + def.radius;
   }
@@ -53,7 +35,7 @@ function layoutSolarSystem(defs) {
   return bodies;
 }
 
-export const CELESTIAL_BODIES = layoutSolarSystem(BODY_DEFS);
+export const CELESTIAL_BODIES = layoutCatalog(BODY_DEFS);
 
 export const SOLAR_SYSTEM_SPAN = (() => {
   const last = CELESTIAL_BODIES[CELESTIAL_BODIES.length - 1];
@@ -61,6 +43,12 @@ export const SOLAR_SYSTEM_SPAN = (() => {
 })();
 
 export const SOLAR_SYSTEM_CENTER_X = SOLAR_SYSTEM_SPAN * 0.5;
+
+/** Default planetarium camera — frames the full catalog row like the reference screenshot. */
+export const CATALOG_CAMERA = {
+  y: 90,
+  z: 1050,
+};
 
 export const MODES = {
   PLANETARIUM: 'planetarium',
