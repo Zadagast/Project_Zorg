@@ -1,4 +1,7 @@
-export const APP_VERSION = '0.6.0';
+export const APP_VERSION = '0.7.0';
+
+/** 'flat' = TPS test arena. 'sphere' = curved planet surface (disabled until flat TPS is solid). */
+export const WALK_SURFACE = 'flat';
 
 /** Drop AI-generated MagicaVoxel files in public/models/ with these names. */
 export const CHARACTER_MODELS = {

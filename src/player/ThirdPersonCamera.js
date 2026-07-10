@@ -1,26 +1,22 @@
 import * as THREE from 'three';
-import { parallelTransportDirection, projectOntoTangentPlane, tangentBasis } from '../utils/SphericalMath.js';
 import { EXIT_ZOOM_FACTOR } from '../config.js';
 
 const _pivot = new THREE.Vector3();
-const _desired = new THREE.Vector3();
-const _forward = new THREE.Vector3();
+const _offset = new THREE.Vector3();
 const _right = new THREE.Vector3();
-const _flat = new THREE.Vector3();
-const _toCamera = new THREE.Vector3();
-const _view = new THREE.Vector3();
-const _mat = new THREE.Matrix4();
-const _qPitch = new THREE.Quaternion();
-const _qYaw = new THREE.Quaternion();
+const _forward = new THREE.Vector3();
+const _toCam = new THREE.Vector3();
+const _worldUp = new THREE.Vector3(0, 1, 0);
 
-const ARM_LENGTH = 4.8;
-const ARM_MIN = 3;
-const SHOULDER = 0.62;
-const DEFAULT_PITCH = -0.28;
+const ARM_LENGTH = 5.5;
+const ARM_MIN = 2.5;
+const SHOULDER = 0.55;
+const DEFAULT_YAW = 0;
+const DEFAULT_PITCH = 0.42;
 
 /**
- * Flat-plane TPS on a sphere: store look direction as a tangent vector and
- * parallel-transport it when the surface normal changes — no yaw drift.
+ * Fortnite-style TPS on a flat XZ plane.
+ * Mouse orbits the camera around the player pivot; camera always lookAt(pivot).
  */
 export class ThirdPersonCamera {
   constructor(camera) {
@@ -28,15 +24,13 @@ export class ThirdPersonCamera {
     this.distance = ARM_LENGTH;
     this.minDistance = ARM_MIN;
     this.maxDistance = 40;
+    this.yaw = DEFAULT_YAW;
     this.pitch = DEFAULT_PITCH;
-    this.minPitch = -1.1;
-    this.maxPitch = 0.75;
-    /** World-space horizontal look direction (tangent to surface). */
-    this._controlForward = new THREE.Vector3(0, 0, -1);
-    this._lastUp = new THREE.Vector3(0, 1, 0);
+    this.minPitch = 0.12;
+    this.maxPitch = 1.15;
     this.shoulderOffset = SHOULDER;
     this.exitDistance = 20;
-    this.mouseSensitivity = 0.0042;
+    this.mouseSensitivity = 0.004;
     this.wheelSensitivity = 0.012;
     this.walkFov = 80;
     this._savedFov = null;
@@ -54,7 +48,6 @@ export class ThirdPersonCamera {
     this._savedFov = this.camera.fov;
     this.camera.fov = this.walkFov;
     this.camera.updateProjectionMatrix();
-    this._lastUp.set(0, 1, 0);
   }
 
   exitWalkMode() {
@@ -63,20 +56,8 @@ export class ThirdPersonCamera {
     this.camera.updateProjectionMatrix();
   }
 
-  /** Carry control forward when walking changes the surface normal. */
-  syncToSurface(up) {
-    if (this._lastUp.lengthSq() > 0.5 && this._lastUp.dot(up) < 0.9999) {
-      parallelTransportDirection(this._controlForward, this._lastUp, up, this._controlForward);
-    } else {
-      projectOntoTangentPlane(this._controlForward, up, this._controlForward);
-    }
-    this._lastUp.copy(up);
-  }
-
-  applyMouseDelta(delta, up) {
-    _qYaw.setFromAxisAngle(up, -delta.x * this.mouseSensitivity);
-    this._controlForward.applyQuaternion(_qYaw);
-    projectOntoTangentPlane(this._controlForward, up, this._controlForward);
+  applyMouseDelta(delta) {
+    this.yaw -= delta.x * this.mouseSensitivity;
     this.pitch -= delta.y * this.mouseSensitivity;
     this.pitch = THREE.MathUtils.clamp(this.pitch, this.minPitch, this.maxPitch);
   }
@@ -96,98 +77,52 @@ export class ThirdPersonCamera {
     return this.distance;
   }
 
-  /** Horizontal control forward — movement + camera yaw (no pitch). */
-  getControlForward(up, target) {
-    return projectOntoTangentPlane(this._controlForward, up, target);
+  /** Camera-relative WASD on the XZ plane (yaw only, no pitch). */
+  getMovementBasis() {
+    _forward.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)).normalize();
+    _right.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw)).normalize();
+    return { forward: _forward, right: _right, up: _worldUp };
   }
 
-  getViewDirection(up, target) {
-    this.getControlForward(up, _forward);
-    _right.crossVectors(_forward, up).normalize();
-    _qPitch.setFromAxisAngle(_right, this.pitch);
-    return target.copy(_forward).applyQuaternion(_qPitch).normalize();
-  }
-
-  _writeSpringArmPosition(pivot, up, target) {
-    this.getViewDirection(up, _view);
-    this.getControlForward(up, _forward);
-    _right.crossVectors(_forward, up).normalize();
-    return target
-      .copy(pivot)
-      .addScaledVector(_view, -this.distance)
-      .addScaledVector(_right, this.shoulderOffset);
-  }
-
-  _orientAlongView(position, viewDir, up) {
-    this.camera.position.copy(position);
-
-    _right.crossVectors(viewDir, up);
-    if (_right.lengthSq() < 1e-8) {
-      _right.copy(tangentBasis(up).east);
-    } else {
-      _right.normalize();
-    }
-
-    _forward.copy(viewDir).negate();
-    _mat.makeBasis(_right, up, _forward);
-    this.camera.quaternion.setFromRotationMatrix(_mat);
-    this.camera.up.copy(up);
-  }
-
-  setApproachOrientation(pivot, up, cameraPosition, bodyCenter) {
+  /** Place camera on a spring arm behind the player and look at the pivot. */
+  update(pivot) {
     _pivot.copy(pivot);
+    const cosP = Math.cos(this.pitch);
+    const sinP = Math.sin(this.pitch);
+    const sinY = Math.sin(this.yaw);
+    const cosY = Math.cos(this.yaw);
 
-    _toCamera.copy(cameraPosition).sub(_pivot);
-    const startDist = _toCamera.length();
-    if (startDist > 1e-4) {
-      this.distance = THREE.MathUtils.clamp(startDist, this.minDistance, this.maxDistance);
-    }
-
-    _view.copy(_pivot).sub(cameraPosition);
-    if (_view.lengthSq() < 1e-4 && bodyCenter) {
-      _view.copy(_pivot).sub(bodyCenter);
-    }
-    if (_view.lengthSq() < 1e-4) {
-      projectOntoTangentPlane(new THREE.Vector3(0, 0, -1), up, this._controlForward);
-      this.pitch = DEFAULT_PITCH;
-      this._lastUp.copy(up);
-      return;
-    }
-    _view.normalize();
-
-    _flat.copy(_view);
-    projectOntoTangentPlane(_flat, up, this._controlForward);
-    if (this._controlForward.lengthSq() < 1e-8) {
-      projectOntoTangentPlane(new THREE.Vector3(0, 0, -1), up, this._controlForward);
-    }
-
-    const pitchedComponent = _view.dot(up);
-    this.pitch = THREE.MathUtils.clamp(
-      Math.asin(THREE.MathUtils.clamp(pitchedComponent, -1, 1)),
-      this.minPitch,
-      this.maxPitch,
+    _offset.set(
+      this.distance * sinY * cosP,
+      this.distance * sinP,
+      this.distance * cosY * cosP,
     );
-    this._lastUp.copy(up);
+
+    _right.set(cosY, 0, sinY);
+    this.camera.position.copy(_pivot).add(_offset).addScaledVector(_right, this.shoulderOffset);
+    this.camera.up.copy(_worldUp);
+    this.camera.lookAt(_pivot);
   }
 
-  applyCameraPose(pivot, up) {
+  applyCameraPose(pivot) {
+    this.update(pivot);
+  }
+
+  setApproachOrientation(pivot, _up, cameraPosition) {
     _pivot.copy(pivot);
-    this.getViewDirection(up, _view);
-    this._writeSpringArmPosition(_pivot, up, _desired);
-
-    if (!Number.isFinite(_desired.x) || !Number.isFinite(_view.x)) return;
-
-    this._orientAlongView(_desired, _view, up);
-  }
-
-  update(pivot, up) {
-    this.syncToSurface(up);
-    this.applyCameraPose(pivot, up);
-  }
-
-  getMovementBasis(_pivot, up) {
-    this.getControlForward(up, _forward);
-    _right.crossVectors(_forward, up).normalize();
-    return { forward: _forward, right: _right, up };
+    _toCam.copy(cameraPosition).sub(_pivot);
+    const len = _toCam.length();
+    if (len > 1e-4) {
+      this.distance = THREE.MathUtils.clamp(len, this.minDistance, this.maxDistance);
+      this.yaw = Math.atan2(_toCam.x, _toCam.z);
+      this.pitch = THREE.MathUtils.clamp(
+        Math.asin(THREE.MathUtils.clamp(_toCam.y / len, -1, 1)),
+        this.minPitch,
+        this.maxPitch,
+      );
+    } else {
+      this.yaw = DEFAULT_YAW;
+      this.pitch = DEFAULT_PITCH;
+    }
   }
 }

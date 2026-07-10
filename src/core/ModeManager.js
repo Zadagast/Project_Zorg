@@ -41,7 +41,7 @@ export class ModeManager {
       this.transitioning = true;
       this.mode = MODES.TRANSITIONING;
       this.planetariumMode.exit();
-      this.setHint('Landing…');
+      this.setHint('Landing on flat test arena…');
 
       const { startDist, targetDist } = this.walkMode.prepareLanding(body, landingPoint);
 
