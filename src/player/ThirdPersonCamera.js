@@ -35,7 +35,7 @@ export class ThirdPersonCamera {
     this.yaw = 0;
     this.shoulderOffset = TPS_SHOULDER;
     this.exitDistance = 20;
-    this.mouseSensitivity = 0.0022;
+    this.mouseSensitivity = 0.0038;
     this.wheelSensitivity = 0.012;
     this.walkFov = 60;
     this._savedFov = null;

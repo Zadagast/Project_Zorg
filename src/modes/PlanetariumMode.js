@@ -170,10 +170,13 @@ export class PlanetariumMode {
     this.solarSystem.resetVisibility();
     this._releaseControls();
     this.landTriggered = false;
+    this.controls.connect(this.domElement);
+    this.setEnabled(true);
   }
 
   exit() {
     this.setEnabled(false);
+    this.controls.disconnect();
   }
 
   dispose() {

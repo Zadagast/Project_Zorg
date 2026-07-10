@@ -52,6 +52,7 @@ export class Game {
       input: this.input,
       crosshair: this.ui.crosshair,
       onExitRequest: (body) => this._modeManager?.handleExitRequest(body),
+      onHintChange: (text) => this._modeManager?.setHint(text),
     });
 
     this.modeManager = new ModeManager({

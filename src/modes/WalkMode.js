@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 import { WalkRig } from '../player/WalkRig.js';
 
 const WHEEL_GRACE_MS = 600;
@@ -17,6 +16,7 @@ export class WalkMode {
     input,
     onExitRequest,
     crosshair,
+    onHintChange,
   }) {
     this.scene = scene;
     this.camera = camera;
@@ -25,13 +25,13 @@ export class WalkMode {
     this.tpsCamera = tpsCamera;
     this.input = input;
     this.onExitRequest = onExitRequest;
+    this.onHintChange = onHintChange;
     this.crosshair = crosshair;
     this.walkRig = new WalkRig(scene);
     this.activeBody = null;
     this.enabled = false;
     this._enterTime = 0;
 
-    input.domElement.addEventListener('mousedown', this._onCanvasMouseDown);
     input.domElement.addEventListener('contextmenu', this._onContextMenu);
   }
 
@@ -39,21 +39,23 @@ export class WalkMode {
     if (this.enabled) e.preventDefault();
   };
 
-  _onCanvasMouseDown = (e) => {
-    if (!this.enabled) return;
-    if (e.button !== 0 && e.button !== 2) return;
-    e.preventDefault();
-    this.input.domElement.focus({ preventScroll: true });
-    void this.input.requestPointerLock();
-  };
-
   _setCrosshairVisible(visible) {
     if (this.crosshair) this.crosshair.hidden = !visible;
   }
 
+  _updateLookHint() {
+    if (!this.onHintChange || !this.enabled) return;
+    if (this.input.isPointerLocked()) {
+      this.onHintChange('WASD move · Mouse look · Scroll out to leave · Esc exit');
+    } else {
+      this.onHintChange('Hold click + drag to look · WASD move · Scroll out · Esc exit');
+    }
+  };
+
   prepareLanding(body, landingPoint) {
     this.activeBody = body;
     this.enabled = false;
+    this.input.setWalkMode(false);
     this.tpsCamera.enterWalkMode();
 
     this.solarSystem.setBodiesVisibleExcept(body, false);
@@ -78,6 +80,7 @@ export class WalkMode {
   abortLanding() {
     this.enabled = false;
     this.activeBody = null;
+    this.input.setWalkMode(false);
     this._setCrosshairVisible(false);
     this.tpsCamera.exitWalkMode();
     if (this.player.root.parent) {
@@ -85,13 +88,13 @@ export class WalkMode {
     }
     this.walkRig.detach();
     this.solarSystem?.resetVisibility();
-    this.input.exitPointerLock();
     this.input.consumeWheelDelta();
   }
 
   finishLanding() {
     this.enabled = true;
     this._enterTime = performance.now();
+    this.input.setWalkMode(true);
     this._setCrosshairVisible(true);
     this.input.consumeWheelDelta();
     this.input.consumeMouseDelta();
@@ -101,12 +104,12 @@ export class WalkMode {
     const up = this.walkRig.getWorldUp(_up);
     this.tpsCamera.applyCameraPose(cameraPivot, up);
     this.walkRig.syncPlayerFacing(this.tpsCamera, focusBase, up);
-
-    void this.input.requestPointerLock();
+    this._updateLookHint();
   }
 
   exit() {
     this.enabled = false;
+    this.input.setWalkMode(false);
     this._setCrosshairVisible(false);
     this.tpsCamera.exitWalkMode();
     if (this.player.root.parent) {
@@ -114,7 +117,6 @@ export class WalkMode {
     }
     this.walkRig.detach();
     this.activeBody = null;
-    this.input.exitPointerLock();
     this.input.consumeWheelDelta();
     this.solarSystem.resetVisibility();
   }
@@ -128,9 +130,11 @@ export class WalkMode {
       const up = this.walkRig.getWorldUp(_up);
 
       const mouse = this.input.consumeMouseDelta();
-      if (this.input.isLooking() && (mouse.x !== 0 || mouse.y !== 0)) {
+      if (mouse.x !== 0 || mouse.y !== 0) {
         this.tpsCamera.applyMouseDelta(mouse);
       }
+
+      this._updateLookHint();
 
       const sinceEnter = performance.now() - this._enterTime;
       let wheel = 0;

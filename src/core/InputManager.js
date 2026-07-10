@@ -5,41 +5,132 @@ export class InputManager {
     this.mouseDelta = { x: 0, y: 0 };
     this.wheelDelta = 0;
     this.pointerLocked = false;
+    this.walkMode = false;
     this._mouseButtons = 0;
     this._dragDistance = 0;
+    this._capturedPointer = null;
+    this._lastPointerX = 0;
+    this._lastPointerY = 0;
+    this._trackingPointer = false;
 
     this._onKeyDown = (e) => this.keys.add(e.code);
     this._onKeyUp = (e) => this.keys.delete(e.code);
-    this._onMouseMove = (e) => {
-      if (this.pointerLocked || this._mouseButtons !== 0) {
-        this.mouseDelta.x += e.movementX;
-        this.mouseDelta.y += e.movementY;
-        this._dragDistance += Math.abs(e.movementX) + Math.abs(e.movementY);
-      }
-    };
-    this._onWheel = (e) => {
-      this.wheelDelta += e.deltaY;
-    };
-    this._onMouseDown = (e) => {
+
+    this._onPointerDown = (e) => {
+      if (e.target !== this.domElement && !this.domElement.contains(e.target)) return;
+
       this._mouseButtons |= 1 << e.button;
       this._dragDistance = 0;
+      this._lastPointerX = e.clientX;
+      this._lastPointerY = e.clientY;
+
+      if (!this.walkMode) return;
+      if (e.button !== 0 && e.button !== 2) return;
+
+      e.preventDefault();
+      this.domElement.focus({ preventScroll: true });
+      this._beginPointerTracking(e);
+      void this.requestPointerLock();
     };
-    this._onMouseUp = (e) => {
+
+    this._onPointerMove = (e) => {
+      if (!this._shouldTrackPointer(e)) return;
+      this._accumulatePointerDelta(e);
+    };
+
+    this._onPointerUp = (e) => {
       this._mouseButtons &= ~(1 << e.button);
+      if (this._capturedPointer === e.pointerId) {
+        this._endPointerTracking();
+      }
     };
+
     this._onPointerLockChange = () => {
       this.pointerLocked = document.pointerLockElement === this.domElement;
       document.body.classList.toggle('pointer-locked', this.pointerLocked);
+      if (this.pointerLocked) {
+        this._trackingPointer = true;
+      }
+    };
+
+    this._onWheel = (e) => {
+      this.wheelDelta += e.deltaY;
     };
 
     window.addEventListener('keydown', this._onKeyDown);
     window.addEventListener('keyup', this._onKeyUp);
-    window.addEventListener('mousemove', this._onMouseMove);
+    this.domElement.addEventListener('pointerdown', this._onPointerDown);
+    this.domElement.addEventListener('pointermove', this._onPointerMove);
+    window.addEventListener('pointerup', this._onPointerUp);
+    window.addEventListener('pointermove', this._onPointerMove);
     window.addEventListener('wheel', this._onWheel, { passive: true });
-    domElement.addEventListener('mousedown', this._onMouseDown);
-    window.addEventListener('mouseup', this._onMouseUp);
     document.addEventListener('pointerlockchange', this._onPointerLockChange);
     document.addEventListener('pointerlockerror', this._onPointerLockChange);
+  }
+
+  setWalkMode(active) {
+    this.walkMode = active;
+    if (!active) {
+      this._endPointerTracking();
+      this.exitPointerLock();
+      this.mouseDelta.x = 0;
+      this.mouseDelta.y = 0;
+    }
+  }
+
+  _beginPointerTracking(e) {
+    this._trackingPointer = true;
+    this._lastPointerX = e.clientX;
+    this._lastPointerY = e.clientY;
+    try {
+      this.domElement.setPointerCapture(e.pointerId);
+      this._capturedPointer = e.pointerId;
+    } catch {
+      this._capturedPointer = null;
+    }
+  }
+
+  _endPointerTracking() {
+    if (this._capturedPointer !== null) {
+      try {
+        this.domElement.releasePointerCapture(this._capturedPointer);
+      } catch {
+        // Already released.
+      }
+    }
+    this._capturedPointer = null;
+    if (!this.pointerLocked) {
+      this._trackingPointer = false;
+    }
+  }
+
+  _shouldTrackPointer(e) {
+    if (this.pointerLocked) return true;
+    if (this.walkMode && this._trackingPointer) {
+      return this._capturedPointer === null || e.pointerId === this._capturedPointer;
+    }
+    if (this._mouseButtons !== 0) return true;
+    return false;
+  }
+
+  _accumulatePointerDelta(e) {
+    let dx = e.movementX ?? 0;
+    let dy = e.movementY ?? 0;
+
+    // Fallback for drag without pointer lock (movementX/Y are often 0).
+    if (dx === 0 && dy === 0) {
+      dx = e.clientX - this._lastPointerX;
+      dy = e.clientY - this._lastPointerY;
+    }
+
+    this._lastPointerX = e.clientX;
+    this._lastPointerY = e.clientY;
+
+    if (dx === 0 && dy === 0) return;
+
+    this.mouseDelta.x += dx;
+    this.mouseDelta.y += dy;
+    this._dragDistance += Math.abs(dx) + Math.abs(dy);
   }
 
   isDown(code) {
@@ -50,8 +141,8 @@ export class InputManager {
     return (this._mouseButtons & (1 << button)) !== 0;
   }
 
-  isLooking() {
-    return this.pointerLocked || this._mouseButtons !== 0;
+  isPointerLocked() {
+    return this.pointerLocked;
   }
 
   wasDrag() {
@@ -110,10 +201,11 @@ export class InputManager {
   dispose() {
     window.removeEventListener('keydown', this._onKeyDown);
     window.removeEventListener('keyup', this._onKeyUp);
-    window.removeEventListener('mousemove', this._onMouseMove);
+    this.domElement.removeEventListener('pointerdown', this._onPointerDown);
+    this.domElement.removeEventListener('pointermove', this._onPointerMove);
+    window.removeEventListener('pointerup', this._onPointerUp);
+    window.removeEventListener('pointermove', this._onPointerMove);
     window.removeEventListener('wheel', this._onWheel);
-    this.domElement.removeEventListener('mousedown', this._onMouseDown);
-    window.removeEventListener('mouseup', this._onMouseUp);
     document.removeEventListener('pointerlockchange', this._onPointerLockChange);
     document.removeEventListener('pointerlockerror', this._onPointerLockChange);
     document.body.classList.remove('pointer-locked');
